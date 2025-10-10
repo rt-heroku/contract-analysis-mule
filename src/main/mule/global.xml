@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:ms-inference="http://www.mulesoft.org/schema/mule/ms-inference" xmlns:db="http://www.mulesoft.org/schema/mule/db"
+	xmlns:s4hana="http://www.mulesoft.org/schema/mule/s4hana"
+	xmlns:salesforce="http://www.mulesoft.org/schema/mule/salesforce" xmlns:file="http://www.mulesoft.org/schema/mule/file" xmlns:http="http://www.mulesoft.org/schema/mule/http" xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/file http://www.mulesoft.org/schema/mule/file/current/mule-file.xsd
+http://www.mulesoft.org/schema/mule/salesforce http://www.mulesoft.org/schema/mule/salesforce/current/mule-salesforce.xsd
+http://www.mulesoft.org/schema/mule/s4hana http://www.mulesoft.org/schema/mule/s4hana/current/mule-s4hana.xsd
+http://www.mulesoft.org/schema/mule/db http://www.mulesoft.org/schema/mule/db/current/mule-db.xsd
+http://www.mulesoft.org/schema/mule/ms-inference http://www.mulesoft.org/schema/mule/ms-inference/current/mule-ms-inference.xsd">
+	<http:listener-config name="REST_Trigger_HTTP_Listener_config" doc:name="HTTP Listener config" doc:id="87df0d4f-557c-4a20-ac97-8ed21a39f64e" >
+		<http:listener-connection host="0.0.0.0" port="8081" readTimeout="60000"/>
+	</http:listener-config>
+	<file:config name="File_Config" doc:name="File Config" doc:id="dd0aa5cb-af84-42a6-bec1-5372ae460da6" >
+		<file:connection workingDir="/Users/rodrigo.torres/Downloads" />
+	</file:config>
+	<configuration-properties doc:name="Configuration properties" doc:id="1ed04eba-01d4-4da6-a98b-41ffa312ae85" file="${environment}.yaml" />
+	<global-property doc:name="Global Property" doc:id="53380364-0500-485e-826e-0ca2a581f042" name="environment" value="local" />
+	<http:request-config name="Anypoint_HTTP_Request_configuration" doc:name="HTTP Request configuration" doc:id="a5890d43-9f30-4387-baf5-540216873c23" basePath="${anypoint_http_request.base_path}" >
+		<http:request-connection protocol="HTTPS" host="${anypoint_http_request.host}" connectionIdleTimeout="60000"/>
+	</http:request-config>
+	<http:request-config name="IDP_HTTP_Request_configuration" doc:name="HTTP Request configuration" doc:id="a0621cda-cd08-41a0-8d9c-7b9108090e4b" basePath="${idp_http_request.base_path}">
+		<http:request-connection protocol="HTTPS" host="${idp_http_request.host}" connectionIdleTimeout="60000"/>
+	</http:request-config>
+    <db:config name="Database_Config" doc:name="Database Config" doc:id="50a5e914-e3b8-4039-95e0-a26b6b8394b9" >
+		<db:generic-connection url="jdbc:postgresql://${db.host}:${db.port}/${db.database}" driverClassName="org.postgresql.Driver" user="${db.user}" password="${db.password}" >
+			<db:pooling-profile maxPoolSize="${db.maxPoolSize}" minPoolSize="${db.minPoolSize}" maxWait="${db.maxWait}" acquireIncrement="${db.accIncrement}" preparedStatementCacheSize="${db.psCacheSize}" maxIdleTime="${db.maxIdleTime}" maxStatements="${db.maxStatements}"/>
+		</db:generic-connection>
+	</db:config>
+	<http:request-config name="HTTP_Request_configuration" doc:name="HTTP Request configuration" doc:id="6824bff8-cfe4-46b6-9dc6-18aadd8e37c5" >
+		<http:request-connection host="${idp_http_request.host}" />
+	</http:request-config>
+	<ms-inference:text-generation-config name="MuleSoft_Inference_Text_generation_config" doc:name="MuleSoft Inference Text generation config" doc:id="9c7e69f6-4786-4fef-929e-60458198cdb5" >
+		<ms-inference:openai-connection openAIModelName="gpt-4o" apiKey="${mac.openai_key}" maxTokens="16384" />
+	</ms-inference:text-generation-config>
+</mule>

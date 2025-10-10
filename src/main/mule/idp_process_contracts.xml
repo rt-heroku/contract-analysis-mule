@@ -1,0 +1,382 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:db="http://www.mulesoft.org/schema/mule/db" xmlns:ms-inference="http://www.mulesoft.org/schema/mule/ms-inference"
+	xmlns:file="http://www.mulesoft.org/schema/mule/file"
+	xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core" xmlns:http="http://www.mulesoft.org/schema/mule/http" xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd
+http://www.mulesoft.org/schema/mule/file http://www.mulesoft.org/schema/mule/file/current/mule-file.xsd
+http://www.mulesoft.org/schema/mule/ms-inference http://www.mulesoft.org/schema/mule/ms-inference/current/mule-ms-inference.xsd
+http://www.mulesoft.org/schema/mule/db http://www.mulesoft.org/schema/mule/db/current/mule-db.xsd">
+	<flow name="idp_process_contractsFlow" doc:id="b46fd269-2fe3-46fa-9ea2-86672ce2fca0" >
+		<http:listener doc:name="POST /process/document" doc:id="60ff541c-ed89-41e9-856b-8d46e51d79a6" path="/process/document" config-ref="REST_Trigger_HTTP_Listener_config"/>
+		<set-variable value="#[attributes.queryParams.job]" doc:name="Set JobId" doc:id="08200f2f-b5f1-4f8e-ab48-c39de2c952bf" variableName="jobId" />
+		<flow-ref doc:name="Authenticate Anypoint User" doc:id="b2254b8c-bea2-4f65-8dad-46e0c7114779" name="authenticate_Anypoint_User" />
+		<flow-ref doc:name="Read File" doc:id="43085465-1cd4-401c-90a5-9bdd0a8a4e86" name="read_File" />
+		<flow-ref doc:name="Call IDP Service - Execution" doc:id="c12f6b9b-c5ef-44a6-a875-d7784982e705" name="call_IDP_Service" />
+		<flow-ref doc:name="Get Results from IDP Service - Polling" doc:id="9b9994b1-ab6f-4529-ac17-42aadc54c289" name="get_Results_From_IDP_Service" />
+		<ee:transform doc:name="Transform Message" doc:id="75003760-d955-49bf-ab63-a35bd2af467e" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{
+    id: payload.id,
+    document: payload.documentName,
+    status: payload.status,
+    terms: payload.fields.terms.value splitBy  ".",
+    products: payload.fields.products.value splitBy  "."
+}
+]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+	</flow>
+	<sub-flow name="read_File" doc:id="cd6e6b2f-50c5-4789-9fe8-1555c820906b">
+		<db:select doc:name="Get File with Data" doc:id="830601bd-be10-41f8-ba3b-3b74f0b86fa7" config-ref="Database_Config" target="file">
+			<db:sql><![CDATA[select job_id, filename, file_content_base64, mime_type 
+from uploads where job_id = :job
+and upload_type = 'contract']]></db:sql>
+			<db:input-parameters><![CDATA[#[{
+	job: vars.jobId
+}]]]></db:input-parameters>
+		</db:select>
+		<ee:transform doc:name="Transform Message" doc:id="f23cc49f-d04b-469f-94ca-5a56ffe9c58f">
+			<ee:message>
+				<ee:set-payload><![CDATA[%dw 2.0
+import * from dw::core::Binaries
+output application/octet-stream  with binary// or the specific MIME type of your file (e.g., application/pdf, image/png)
+---
+fromBase64(vars.file[0].file_content_base64 as String) as Binary]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<set-variable value="#[payload]" doc:name="Set Variable" doc:id="442e6ff6-c964-4381-bfdc-56d45f5b52d1" variableName="fileData"/>
+	</sub-flow>
+	<flow name="get-idp-result" doc:id="61bd9456-915c-4d52-be05-fc0f115d41be" >
+		<http:listener doc:name="/document/result" doc:id="da5ca0f9-00c3-4aa4-937f-a7feaacf8795" config-ref="REST_Trigger_HTTP_Listener_config" path="/document/result"/>
+		<set-variable value='#[attributes.queryParams.id as String default ""]' doc:name="Set executionid" doc:id="8df0c2ce-37c5-4460-baa2-fca47709aaf7" variableName="executionId"/>
+		<logger level="INFO" doc:name="Logger" doc:id="c43593d2-5c97-4f61-aed3-6e3b23fe85ca" message="ExecutionId: #[vars.executionid]"/>
+		<flow-ref doc:name="Authenticate Anypoint User" doc:id="e71690ed-4517-4683-828d-a4212f8480e2" name="authenticate_Anypoint_User" />
+		<flow-ref doc:name="Get Results from IDP Service - Polling" doc:id="ba32037a-764e-4ef7-b710-515d284e4abf" name="get_Results_From_IDP_Service" />
+		<ee:transform doc:name="Transform Message" doc:id="7a9d1f39-dbf8-40d8-a76d-641dd7455b48" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{
+    document: payload.documentName,
+    status: payload.status,
+    terms: payload.fields.terms.value splitBy  ".",
+    products: payload.fields.products.value splitBy  "."
+}
+]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+	</flow>
+	<flow name="analyze-contract-file" doc:id="2d3d9377-0466-4a0d-ba27-152254a07338" >
+		<http:listener doc:name="/analyze" doc:id="9249d043-76fd-4ebc-93ab-7d13662fb6b8" config-ref="REST_Trigger_HTTP_Listener_config" path="/analyze/test" allowedMethods="POST"/>
+		<set-variable value="#[attributes.queryParams.job]" doc:name="Set JobId" doc:id="3da3f463-50f4-40d6-94df-62c45875a181" variableName="jobId"/>
+		<set-variable value="#[%dw 2.0&#10;output application/json&#10;---&#10;payload]" doc:name="Set Contract" doc:id="e80e519c-8123-4e68-aad3-f91478648367" variableName="contract" />
+		<set-variable value="/Users/rodrigo.torres/mulesoft-work/customers/dreamfields/11.15 Rec._Christian Cannon.xlsx" doc:name="filePath" doc:id="c28de14c-f278-46c4-9bc0-ae906bc21f79" variableName="filePath" />
+		<file:read doc:name="Read" doc:id="8704fe56-749d-4b51-931b-6483acfacd3f" config-ref="File_Config" path="#[vars.filePath]" />
+		<set-variable value='#[%dw 2.0&#10;output application/json&#10;---&#10;read(payload, "application/xlsx") // produces an array of rows]' doc:name="Set Variable" doc:id="9adff671-98e1-40b0-a51e-5189dbf2f942" variableName="data"/>
+		<ee:transform doc:name="Transform Message" doc:id="4d29031e-fa21-4dc6-bd1c-84f01ecbc0d3" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+
+// ======================================
+// === Prepare JSON strings for prompt ===
+// ======================================
+var contractJsonStr = write(vars.contract, "application/json", {indent: 2})
+var excelSummaryStr = write(vars.data,   "application/json", {indent: 2})
+
+// ============================
+// === Build the full prompt ===
+// ============================
+var fullPrompt =
+    "You are a **business and data analyst** specializing in **contract compliance validation** for distribution agreements.\n" ++
+    "Your task is to **analyze customer sales data in Excel format** against the provided contract reference data.\n\n" ++
+    "---\n\n" ++
+    "### 📝 Contract Data (JSON)\n" ++
+    contractJsonStr ++ "\n\n" ++
+    "---\n\n" ++
+    "### 🎯 Your Objectives\n" ++
+    "1. **Validate** the provided Excel dataset against the contract:\n" ++
+    "   - Compare all product SKUs listed in the contract to those in the Excel file.\n" ++
+    "   - Check quantities, limits, pricing logic, and promotional mechanics.\n" ++
+    "   - Identify missing, extra, or mismatched products.\n" ++
+    "   - Evaluate compliance with all contract terms (funding split, bundle type, daily unit limits, etc.).\n\n" ++
+    "2. **Generate outputs in two parts:**\n" ++
+    "   - **(A) JSON Summary:** A structured JSON object with standardized sections for automation.\n" ++
+    "   - **(B) Markdown Report:** A human-readable `.md` report summarizing your findings.\n\n" ++
+    "---\n\n" ++
+    "### ⚙️ Output Specification\n\n" ++
+    "#### (A) JSON Summary (Machine-Readable)\n" ++
+    "Output a single JSON object with the following top-level structure:\n" ++
+    "```json\n" ++
+    "{\n" ++
+    "  \"contract_summary\": {\n" ++
+    "    \"document\": \"...\",\n" ++
+    "    \"terms\": [...],\n" ++
+    "    \"products_reference\": [...]\n" ++
+    "  },\n" ++
+    "  \"validation_summary\": {\n" ++
+    "    \"matched_products\": [...],\n" ++
+    "    \"missing_products\": [...],\n" ++
+    "    \"over_limit_products\": [...],\n" ++
+    "    \"quantity_discrepancies\": [...],\n" ++
+    "    \"pricing_issues\": [...],\n" ++
+    "    \"term_violations\": [...]\n" ++
+    "  },\n" ++
+    "  \"anomalies_detected\": [\n" ++
+    "    {\"issue\": \"...\", \"explanation\": \"...\", \"possible_cause\": \"...\"}\n" ++
+    "  ],\n" ++
+    "  \"compliance_score\": \"XX%\",\n" ++
+    "  \"recommendations\": [\n" ++
+    "    \"...\"\n" ++
+    "  ]\n" ++
+    "}\n" ++
+    "```\n\n" ++
+    "---\n\n" ++
+    "### 📊 Excel Data (Aggregated Summary)\n" ++
+    "Use this JSON as the ground truth for product totals:\n\n" ++
+    excelSummaryStr ++ "\n\n" ++
+    "Return **JSON first** (per schema above), then **Markdown**.\n" ++
+    "Follow all rules and structure from the Contract Compliance Prompt Template."
+
+// =====================
+// === Final output  ===
+// =====================
+---
+{
+  contract_json: vars.contractJson,
+  excel_data: excelSummaryStr,
+  prompt: fullPrompt
+}]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<set-payload value='#[%dw 2.0&#10;output application/json&#10;---&#10;[{&#10;	role : "user" ,&#10;	content : write(payload, "application/json")&#10;}]]' doc:name="Set Payload" doc:id="59fab650-79cd-472f-90c0-d1ea3dedbb6e" />
+		<ms-inference:chat-completions doc:id="a842565f-764c-409d-ad6e-217310a20a54" config-ref="MuleSoft_Inference_Text_generation_config" doc:name="Call OpenAI" >
+			<repeatable-in-memory-stream />
+		</ms-inference:chat-completions>
+		<set-variable value="#[payload]" doc:name="Set Variable" doc:id="dc0b1a8b-a3a6-4b0f-baed-42c897d1a785" variableName="summary"/>
+		<file:write doc:name="Write" doc:id="d20ed588-04d6-413a-b0bd-9aa14e3c1bf9" config-ref="File_Config" path="/Users/rodrigo.torres/mulesoft-work/customers/dreamfields/output.txt"/>
+		<logger level="DEBUG" doc:name="Logger" doc:id="b6a3dc4b-9c7b-4a50-9e8c-75c11c7fdc41" message="#[payload]" />
+		<ee:transform doc:name="Transform Message" doc:id="85646e38-de61-4b51-8112-5e5a43d4491d" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+vars.summary]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+	</flow>
+	<flow name="analyze-contract" doc:id="fe02a2a0-de9d-4ae5-b699-9320aca5da07">
+		<http:listener doc:name="/analyze" doc:id="51cfc361-cf28-48a2-90fc-36241c8e0e71" config-ref="REST_Trigger_HTTP_Listener_config" path="/analyze" allowedMethods="POST" />
+		<set-variable value="#[attributes.queryParams.job]" doc:name="Set JobId" doc:id="04093277-09cc-4b20-9d3a-86bce5adc046" variableName="jobId" />
+		<set-variable value="#[%dw 2.0&#10;output application/json&#10;---&#10;payload]" doc:name="Set Contract" doc:id="ccacf3c7-8412-4f30-95dd-1fe1cca9b640" variableName="contract" />
+		<db:select doc:name="Get File with Data" doc:id="cafcc911-f21f-4364-8835-f3bd42fd9d5d" config-ref="Database_Config" target="contract">
+			<db:sql ><![CDATA[select job_id, filename, file_content_base64, mime_type 
+from uploads where job_id = :job
+and upload_type = 'data']]></db:sql>
+			<db:input-parameters ><![CDATA[#[{
+	job: vars.jobId
+}]]]></db:input-parameters>
+		</db:select>
+		<set-variable value='#[%dw 2.0&#10;    import * from dw::core::Binaries&#10;    output application/octet-stream  with binary// or the specific MIME type of your file (e.g., application/pdf, image/png)&#10;    ---&#10;    fromBase64(vars.contract[0].file_content_base64 as String) as Binary]' doc:name="Set File as Binary" doc:id="fd7c62aa-1618-4064-b597-52df74aac787" variableName="raw" />
+		<set-variable value='#[%dw 2.0output application/json&#10;---&#10;read(vars.raw, "application/xlsx") // produces an array of rows]' doc:name="Set Variable" doc:id="f1febccc-fe02-499e-ac7c-4f46842b4393" variableName="data" />
+		<ee:transform doc:name="Transform Message" doc:id="c8ad2ae3-7edc-4895-9fb9-5e0f0a3d9317">
+			<ee:message>
+				<ee:set-payload><![CDATA[%dw 2.0
+output application/json
+
+// ======================================
+// === Prepare JSON strings for prompt ===
+// ======================================
+var contractJsonStr = write(vars.contract, "application/json", {indent: 2})
+var excelSummaryStr = write(vars.data,   "application/json", {indent: 2})
+
+// ============================
+// === Build the full prompt ===
+// ============================
+var fullPrompt =
+    "You are a **business and data analyst** specializing in **contract compliance validation** for distribution agreements.\n" ++
+    "Your task is to **analyze customer sales data in Excel format** against the provided contract reference data.\n\n" ++
+    "---\n\n" ++
+    "### 📝 Contract Data (JSON)\n" ++
+    contractJsonStr ++ "\n\n" ++
+    "---\n\n" ++
+    "### 🎯 Your Objectives\n" ++
+    "1. **Validate** the provided Excel dataset against the contract:\n" ++
+    "   - Compare all product SKUs listed in the contract to those in the Excel file.\n" ++
+    "   - Check quantities, limits, pricing logic, and promotional mechanics.\n" ++
+    "   - Identify missing, extra, or mismatched products.\n" ++
+    "   - Evaluate compliance with all contract terms (funding split, bundle type, daily unit limits, etc.).\n\n" ++
+    "2. **Generate outputs in two parts:**\n" ++
+    "   - **(A) JSON Summary:** A structured JSON object with standardized sections for automation.\n" ++
+    "   - **(B) Markdown Report:** A human-readable `.md` report summarizing your findings.\n\n" ++
+    "---\n\n" ++
+    "### ⚙️ Output Specification\n\n" ++
+    "#### (A) JSON Summary (Machine-Readable)\n" ++
+    "Output a single JSON object with the following top-level structure:\n" ++
+    "```json\n" ++
+    "{\n" ++
+    "  \"contract_summary\": {\n" ++
+    "    \"document\": \"...\",\n" ++
+    "    \"terms\": [...],\n" ++
+    "    \"products_reference\": [...]\n" ++
+    "  },\n" ++
+    "  \"validation_summary\": {\n" ++
+    "    \"matched_products\": [...],\n" ++
+    "    \"missing_products\": [...],\n" ++
+    "    \"over_limit_products\": [...],\n" ++
+    "    \"quantity_discrepancies\": [...],\n" ++
+    "    \"pricing_issues\": [...],\n" ++
+    "    \"term_violations\": [...]\n" ++
+    "  },\n" ++
+    "  \"anomalies_detected\": [\n" ++
+    "    {\"issue\": \"...\", \"explanation\": \"...\", \"possible_cause\": \"...\"}\n" ++
+    "  ],\n" ++
+    "  \"compliance_score\": \"XX%\",\n" ++
+    "  \"recommendations\": [\n" ++
+    "    \"...\"\n" ++
+    "  ]\n" ++
+    "}\n" ++
+    "```\n\n" ++
+    "---\n\n" ++
+    "### 📊 Excel Data (Aggregated Summary)\n" ++
+    "Use this JSON as the ground truth for product totals:\n\n" ++
+    excelSummaryStr ++ "\n\n" ++
+    "Return **JSON first** (per schema above), then **Markdown**.\n" ++
+    "Follow all rules and structure from the Contract Compliance Prompt Template."
+
+// =====================
+// === Final output  ===
+// =====================
+---
+{
+  contract_json: vars.contractJson,
+  excel_data: excelSummaryStr,
+  prompt: fullPrompt
+}]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<set-payload value='#[%dw 2.0&#10;output application/json&#10;---&#10;[{&#10;	role : "user" ,&#10;	content : write(payload, "application/json")&#10;}]]' doc:name="Set Payload" doc:id="e86f3da7-d1cc-49d1-8435-90c92dac2eaa" />
+		<ms-inference:chat-completions doc:name="Call OpenAI" doc:id="e491fa8a-808d-4e00-b487-bc743f5286e1" config-ref="MuleSoft_Inference_Text_generation_config">
+			<repeatable-in-memory-stream />
+		</ms-inference:chat-completions>
+		<ee:transform doc:name="Transform Message1" doc:id="a0d6a402-b8a4-46e6-9864-0b96bcbd3e9b">
+			<ee:message>
+				<ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+	</flow>
+	<sub-flow name="call_IDP_Service" doc:id="55f3e881-e393-4253-90fd-5176d91dda6a">
+		<set-variable value='#[%dw 2.0&#10;output application/json&#10;---&#10;{&#10;    "type": "GENERIC",&#10;    "queries": [&#10;        {&#10;            "query": "Extract the promotional terms for each product",&#10;            "name": "terms"&#10;        },&#10;        {&#10;            "query": "Give me a list of products, units sold, reference price",&#10;            "name": "products"&#10;        },&#10;        {&#10;            "query": "What is the requestor name?",&#10;            "name": "req_name"&#10;        },&#10;        {&#10;            "query": "This is a selling contract ofr a distributor with a retailer, Summarize the document content.",&#10;            "name": "documentSummary"&#10;        }&#10;    ],&#10;    "features": [&#10;        "QUERIES"&#10;    ],&#10;    "analyzers": [&#10;        &#10;    ],&#10;    "confidenceScore": 80&#10;}]' doc:name="configuration" doc:id="6849b8b7-474b-4c9c-ba0c-511c339a7b58" variableName="configuration" />
+		<ee:transform doc:name="Transform Message" doc:id="89623607-060a-4080-94b0-b732579ba758">
+			<ee:message>
+				<ee:set-payload><![CDATA[%dw 2.0
+import dw::module::Multipart
+import * from dw::core::Binaries
+output multipart/form-data boundary="--------------------------abc123"
+---
+{
+	parts : {
+		file : {
+			headers : {
+				"Content-Disposition" : {
+					"name": "file",
+					"filename": vars.file[0].filename,
+					"subtype": "form-data"
+					},
+				"Content-Type" : "application/pdf"
+				},
+			content : vars.fileData
+			},
+		configuration: {
+			headers : {
+				"Content-Disposition" : {
+					"name": "configuration",
+					"subtype": "form-data"
+					},
+				"Content-Type" : "application/json"
+				},
+			content : vars.configuration
+		}
+		}
+}]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<http:request method="${http.post_method}" doc:name="Call IDP Service" doc:id="12a5e9fd-451e-4342-bd93-49d7d84134b1" config-ref="IDP_HTTP_Request_configuration" path="${idp_http_request.executions_path}">
+			<http:headers><![CDATA[#[output application/java
+---
+{
+	"Authorization" : "Bearer " ++ vars.token as String
+}]]]></http:headers>
+		</http:request>
+		<set-variable value="#[payload.id as String]" doc:name="executionId" doc:id="aa7b3802-21b3-4ab6-b1b6-dff9d4c7173b" variableName="executionId" />
+		<logger level="INFO" doc:name="Logger" doc:id="d9ae2075-6afe-4efb-89fa-1c91a745617e" message='#["============================ EXECUTION ID:     " ++ vars.executionId ++ "      ============================"]' />
+	</sub-flow>
+	<sub-flow name="get_Results_From_IDP_Service" doc:id="c3dee76d-0dc9-4181-b9e2-1832782f63a8" >
+		<until-successful maxRetries="20" doc:name="Until Successful" doc:id="1e8e66be-ac36-4244-8cba-0cb63e5ee9af" millisBetweenRetries="6000" >
+			<set-variable value="#[output application/java --- p('idp_http_request.executions_path') ++ &quot;/&quot; ++ vars.executionId as String]" doc:name="Set Variable" doc:id="ad073bb5-1e33-4883-a451-f99721d7144f" variableName="url"/>
+			<logger level="INFO" doc:name="Logger" doc:id="7b0c9a8e-2b05-4844-b03c-3d3a392600e4" message="Calling idp: https://${idp_http_request.host}${idp_http_request.base_path}#[vars.url]" />
+			<http:request method="${http.get_method}" doc:name="Get Results from IDP Service" doc:id="f21ed189-f013-4f39-ad63-5e5ebb616a02" config-ref="IDP_HTTP_Request_configuration" sendBodyMode="NEVER" path="#[vars.url]">
+				<http:headers ><![CDATA[#[output application/java
+---
+{
+	"Authorization" : "Bearer " ++ vars.token
+}]]]></http:headers>
+			</http:request>
+			<logger level="INFO" doc:name="Logger" doc:id="a40666e1-37b8-46b1-a3c2-483eb0804593" message="payload = #[payload]"/>
+			<choice doc:name="Choice" doc:id="c3bda174-a2ef-45c9-b075-ea93e0a18742" >
+				<when expression="#['SUCCEEDED' != payload.status and 'FAILED' != payload.status]" >
+					<choice doc:name="Choice" doc:id="44ede4db-e345-4ffb-98ee-422e9ede8390" >
+						<when expression="#['MANUAL_VALIDATION_REQUIRED' == payload.status]" >
+							<logger level="INFO" doc:name="Logger" doc:id="2f8091aa-9051-4b41-b933-4ecdc53f731a" message="Manual Validation Needed" />
+						</when>
+						<otherwise >
+							<raise-error doc:name="Raise error" doc:id="0219d46a-e86f-4407-bead-4e2ad28b381a" type="MULE:CONNECTIVITY" description="Service not done yet" />
+						</otherwise>
+					</choice>
+				</when>
+				<when expression="#['FAILED' == payload.status]" >
+					<logger level="INFO" doc:name="Logger" doc:id="4698a624-707d-4bbe-b5d4-c704dd5b5b50" />
+				</when>
+				<otherwise >
+					<logger level="INFO" doc:name="Logger" doc:id="c1d234ff-28b7-4baf-a20e-284125396ffb" message="#[payload]" />
+					<ee:transform doc:name="Transform Message" doc:id="0f179097-841e-44b3-8af7-1d08e88e4411" >
+						<ee:message >
+							<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+						</ee:message>
+					</ee:transform>
+				</otherwise>
+			</choice>
+		</until-successful>
+	</sub-flow>
+	<sub-flow name="authenticate_Anypoint_User" doc:id="2fcc2967-77b9-428b-a266-e2bc192a0720" >
+		<http:request method="${http.post_method}" doc:name="Authenticate" doc:id="dbb79976-02ff-4632-8ddf-8468168dd778" config-ref="Anypoint_HTTP_Request_configuration" path="${anypoint_http_request.auth_path}" >
+			<http:body ><![CDATA[#[%dw 2.0
+output application/x-www-form-urlencoded
+---
+{
+	"grant_type":p('anypoint_http_request.auth_grant_type'),
+	"client_id":p('anypoint_http_request.auth_client_id'),
+	"client_secret":p('anypoint_http_request.auth_client_secret')
+}]]]></http:body>
+			<http:headers ><![CDATA[#[output application/java
+---
+{
+	"Content-Type" : "application/x-www-form-urlencoded"
+}]]]></http:headers>
+		</http:request>
+		<set-variable value="#[payload.access_token]" doc:name="Bearer Token" doc:id="3e90ea13-7d25-4574-a092-ea55bd93c7f7" variableName="token" />
+		<logger level="INFO" doc:name="Logger" doc:id="87501f42-7cdf-4dcf-ae31-c28a08b1aa7d" message='#["============================ BEARER TOKEN:     " ++ vars.token ++ "      ============================"]' />
+	</sub-flow>
+</mule>
