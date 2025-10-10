@@ -78,7 +78,9 @@ output application/json
 		<set-variable value="#[%dw 2.0&#10;output application/json&#10;---&#10;payload]" doc:name="Set Contract" doc:id="e80e519c-8123-4e68-aad3-f91478648367" variableName="contract" />
 		<set-variable value="/Users/rodrigo.torres/mulesoft-work/customers/dreamfields/11.15 Rec._Christian Cannon.xlsx" doc:name="filePath" doc:id="c28de14c-f278-46c4-9bc0-ae906bc21f79" variableName="filePath" />
 		<file:read doc:name="Read" doc:id="8704fe56-749d-4b51-931b-6483acfacd3f" config-ref="File_Config" path="#[vars.filePath]" />
+		<logger level="INFO" doc:name="Logger" doc:id="8e654988-8999-43f6-ae24-d0b7ea62655a" message="File converted to json "/>
 		<set-variable value='#[%dw 2.0&#10;output application/json&#10;---&#10;read(payload, "application/xlsx") // produces an array of rows]' doc:name="Set Variable" doc:id="9adff671-98e1-40b0-a51e-5189dbf2f942" variableName="data"/>
+		<logger level="INFO" doc:name="Logger" doc:id="9bbd6125-3c44-4b5f-8487-603b0f1179d7" message='Excel file data: #[write(vars.data,   "application/json", {indent: 2})]'/>
 		<ee:transform doc:name="Transform Message" doc:id="4d29031e-fa21-4dc6-bd1c-84f01ecbc0d3" >
 			<ee:message >
 				<ee:set-payload ><![CDATA[%dw 2.0
@@ -173,19 +175,41 @@ vars.summary]]></ee:set-payload>
 	</flow>
 	<flow name="analyze-contract" doc:id="fe02a2a0-de9d-4ae5-b699-9320aca5da07">
 		<http:listener doc:name="/analyze" doc:id="51cfc361-cf28-48a2-90fc-36241c8e0e71" config-ref="REST_Trigger_HTTP_Listener_config" path="/analyze" allowedMethods="POST" />
-		<set-variable value="#[attributes.queryParams.job]" doc:name="Set JobId" doc:id="04093277-09cc-4b20-9d3a-86bce5adc046" variableName="jobId" />
-		<set-variable value="#[%dw 2.0&#10;output application/json&#10;---&#10;payload]" doc:name="Set Contract" doc:id="ccacf3c7-8412-4f30-95dd-1fe1cca9b640" variableName="contract" />
-		<db:select doc:name="Get File with Data" doc:id="cafcc911-f21f-4364-8835-f3bd42fd9d5d" config-ref="Database_Config" target="contract">
-			<db:sql ><![CDATA[select job_id, filename, file_content_base64, mime_type 
+		<logger level="INFO" doc:name="Logger" doc:id="65ddce5e-8da8-484f-a152-0fe77015704c" message="Starting Analyze body = #[payload]"/>
+		<choice doc:name="Choice" doc:id="9fe66fae-ec85-49a8-8fbb-f1a0e95828ad" >
+			<when expression="#[isEmpty(payload)]">
+				<ee:transform doc:name="Transform Message" doc:id="60eb2ee8-d208-4018-9e9d-e8c627f848ce" >
+					<ee:message >
+						<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{
+  "status": "FAILED",
+  "error": "Contract data is missing, it needs to come in the body",
+  "analysis_markdown": "",
+  "data_table": []
+}]]></ee:set-payload>
+					</ee:message>
+				</ee:transform>
+				<logger level="INFO" doc:name="Logger" doc:id="e84fdf6d-6c27-4dd9-8e4b-e59145ddead2" message="#[payload]"/>
+			</when>
+			<otherwise >
+				<set-variable value="#[attributes.queryParams.job]" doc:name="Set JobId" doc:id="04093277-09cc-4b20-9d3a-86bce5adc046" variableName="jobId" />
+				<set-variable value="#[%dw 2.0&#10;output application/json&#10;---&#10;payload]" doc:name="Set Contract" doc:id="ccacf3c7-8412-4f30-95dd-1fe1cca9b640" variableName="contract" />
+				<db:select doc:name="Get File with Data" doc:id="cafcc911-f21f-4364-8835-f3bd42fd9d5d" config-ref="Database_Config" target="xlsData">
+			<db:sql><![CDATA[select job_id, filename, file_content_base64, mime_type 
 from uploads where job_id = :job
 and upload_type = 'data']]></db:sql>
-			<db:input-parameters ><![CDATA[#[{
+			<db:input-parameters><![CDATA[#[{
 	job: vars.jobId
 }]]]></db:input-parameters>
 		</db:select>
-		<set-variable value='#[%dw 2.0&#10;    import * from dw::core::Binaries&#10;    output application/octet-stream  with binary// or the specific MIME type of your file (e.g., application/pdf, image/png)&#10;    ---&#10;    fromBase64(vars.contract[0].file_content_base64 as String) as Binary]' doc:name="Set File as Binary" doc:id="fd7c62aa-1618-4064-b597-52df74aac787" variableName="raw" />
-		<set-variable value='#[%dw 2.0output application/json&#10;---&#10;read(vars.raw, "application/xlsx") // produces an array of rows]' doc:name="Set Variable" doc:id="f1febccc-fe02-499e-ac7c-4f46842b4393" variableName="data" />
-		<ee:transform doc:name="Transform Message" doc:id="c8ad2ae3-7edc-4895-9fb9-5e0f0a3d9317">
+				<choice doc:name="Choice" doc:id="deb58733-0444-42ce-9767-b7dda13a15ca">
+			<when expression="#[!isEmpty(payload[0])]">
+				<set-variable value="#[%dw 2.0&#10;    import * from dw::core::Binaries&#10;    output application/octet-stream  with binary// or the specific MIME type of your file (e.g., application/pdf, image/png)&#10;    ---&#10;    fromBase64(vars.xlsData[0].file_content_base64 as String) as Binary]" doc:name="Set File as Binary" doc:id="fd7c62aa-1618-4064-b597-52df74aac787" variableName="raw" />
+				<set-variable value='#[%dw 2.0output application/json&#10;---&#10;read(vars.raw, "application/xlsx") // produces an array of rows]' doc:name="Set Variable" doc:id="f1febccc-fe02-499e-ac7c-4f46842b4393" variableName="data" />
+				<logger level="INFO" doc:name="Logger" doc:id="936a22a8-1409-4400-b4ef-727e46f08b16" message='Excel file data: #[write(vars.data,   "application/json", {indent: 2})]' />
+						<ee:transform doc:name="Transform Message" doc:id="c8ad2ae3-7edc-4895-9fb9-5e0f0a3d9317">
 			<ee:message>
 				<ee:set-payload><![CDATA[%dw 2.0
 output application/json
@@ -261,18 +285,65 @@ var fullPrompt =
 }]]></ee:set-payload>
 			</ee:message>
 		</ee:transform>
-		<set-payload value='#[%dw 2.0&#10;output application/json&#10;---&#10;[{&#10;	role : "user" ,&#10;	content : write(payload, "application/json")&#10;}]]' doc:name="Set Payload" doc:id="e86f3da7-d1cc-49d1-8435-90c92dac2eaa" />
-		<ms-inference:chat-completions doc:name="Call OpenAI" doc:id="e491fa8a-808d-4e00-b487-bc743f5286e1" config-ref="MuleSoft_Inference_Text_generation_config">
+				<set-payload value='#[%dw 2.0&#10;output application/json&#10;---&#10;[{&#10;	role : "user" ,&#10;	content : write(payload, "application/json")&#10;}]]' doc:name="Set Payload" doc:id="e86f3da7-d1cc-49d1-8435-90c92dac2eaa" />
+				<logger level="INFO" doc:name="Logger" doc:id="8a257002-7890-4b4f-b432-57a144b555c3" message="Sending data #[payload]"/>
+						<ms-inference:chat-completions doc:name="Call OpenAI" doc:id="e491fa8a-808d-4e00-b487-bc743f5286e1" config-ref="MuleSoft_Inference_Text_generation_config">
 			<repeatable-in-memory-stream />
 		</ms-inference:chat-completions>
-		<ee:transform doc:name="Transform Message1" doc:id="a0d6a402-b8a4-46e6-9864-0b96bcbd3e9b">
+						<ee:transform doc:name="Transform Message1" doc:id="a0d6a402-b8a4-46e6-9864-0b96bcbd3e9b">
 			<ee:message>
 				<ee:set-payload><![CDATA[%dw 2.0
 output application/json
+
+// Extract the JSON part and the markdown part
+var fullResponse = payload.response
+
+// Find where JSON ends (look for the closing brace followed by triple backticks)
+var jsonEndMarker = "```\n\n---"
+var jsonStartMarker = "```json\n"
+
+// Extract JSON string
+var jsonStart = fullResponse indexOf jsonStartMarker
+var jsonContent = fullResponse[jsonStart + sizeOf(jsonStartMarker) to -1]
+var jsonEnd = jsonContent indexOf jsonEndMarker
+var jsonString = jsonContent[0 to jsonEnd - 1]
+
+// Extract markdown (everything after the JSON block)
+var markdownStart = fullResponse indexOf "---\n\n#"
+var markdownContent = if (markdownStart != -1) 
+    fullResponse[markdownStart + 5 to -1] 
+    else ""
+
 ---
-payload]]></ee:set-payload>
+{
+	status: "SUCCEEDED",
+  	analysis_markdown: markdownContent,
+    jsonData: read(jsonString as String default "{}", "application/json"),
+	data_table: []
+}]]></ee:set-payload>
 			</ee:message>
 		</ee:transform>
+			</when>
+			<otherwise>
+				<ee:transform doc:name="Transform Message" doc:id="26eced26-d2f5-4915-86dc-faf2932e604d">
+					<ee:message>
+						<ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{
+  "status": "FAILED",
+  "error": "No xls file to send",
+  "analysis_markdown": "",
+  "data_table": []
+}]]></ee:set-payload>
+					</ee:message>
+				</ee:transform>
+						<logger level="INFO" doc:name="Logger" doc:id="52524f61-dbb9-4434-b7f8-ee4a0bdcfe2b" message="#[payload]" />
+			</otherwise>
+		</choice>
+			</otherwise>
+		</choice>
+		<logger level="INFO" doc:name="Logger" doc:id="d138f9a6-25ed-4843-b7be-282f3ea43095" message="Sending back #[payload]" />
 	</flow>
 	<sub-flow name="call_IDP_Service" doc:id="55f3e881-e393-4253-90fd-5176d91dda6a">
 		<set-variable value='#[%dw 2.0&#10;output application/json&#10;---&#10;{&#10;    "type": "GENERIC",&#10;    "queries": [&#10;        {&#10;            "query": "Extract the promotional terms for each product",&#10;            "name": "terms"&#10;        },&#10;        {&#10;            "query": "Give me a list of products, units sold, reference price",&#10;            "name": "products"&#10;        },&#10;        {&#10;            "query": "What is the requestor name?",&#10;            "name": "req_name"&#10;        },&#10;        {&#10;            "query": "This is a selling contract ofr a distributor with a retailer, Summarize the document content.",&#10;            "name": "documentSummary"&#10;        }&#10;    ],&#10;    "features": [&#10;        "QUERIES"&#10;    ],&#10;    "analyzers": [&#10;        &#10;    ],&#10;    "confidenceScore": 80&#10;}]' doc:name="configuration" doc:id="6849b8b7-474b-4c9c-ba0c-511c339a7b58" variableName="configuration" />
