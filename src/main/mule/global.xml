@@ -32,6 +32,6 @@ http://www.mulesoft.org/schema/mule/ms-inference http://www.mulesoft.org/schema/
 		<http:request-connection host="${idp_http_request.host}" />
 	</http:request-config>
 	<ms-inference:text-generation-config name="MuleSoft_Inference_Text_generation_config" doc:name="MuleSoft Inference Text generation config" doc:id="9c7e69f6-4786-4fef-929e-60458198cdb5" >
-		<ms-inference:openai-connection openAIModelName="gpt-4o" apiKey="${mac.openai_key}" maxTokens="16384" />
+		<ms-inference:openai-connection openAIModelName="gpt-4o" apiKey="${mac.openai_key}" maxTokens="16384" timeout="180"/>
 	</ms-inference:text-generation-config>
 </mule>

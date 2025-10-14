@@ -1,23 +1,43 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
-<mule xmlns:db="http://www.mulesoft.org/schema/mule/db" xmlns:ms-inference="http://www.mulesoft.org/schema/mule/ms-inference"
-	xmlns:file="http://www.mulesoft.org/schema/mule/file"
-	xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core" xmlns:http="http://www.mulesoft.org/schema/mule/http" xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+<mule xmlns:scripting="http://www.mulesoft.org/schema/mule/scripting" xmlns:db="http://www.mulesoft.org/schema/mule/db"
+	xmlns:ms-inference="http://www.mulesoft.org/schema/mule/ms-inference"
+	xmlns:file="http://www.mulesoft.org/schema/mule/file" xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core" xmlns:http="http://www.mulesoft.org/schema/mule/http" xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
 http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
 http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd
 http://www.mulesoft.org/schema/mule/file http://www.mulesoft.org/schema/mule/file/current/mule-file.xsd
 http://www.mulesoft.org/schema/mule/ms-inference http://www.mulesoft.org/schema/mule/ms-inference/current/mule-ms-inference.xsd
-http://www.mulesoft.org/schema/mule/db http://www.mulesoft.org/schema/mule/db/current/mule-db.xsd">
+http://www.mulesoft.org/schema/mule/db http://www.mulesoft.org/schema/mule/db/current/mule-db.xsd
+http://www.mulesoft.org/schema/mule/scripting http://www.mulesoft.org/schema/mule/scripting/current/mule-scripting.xsd">
 	<flow name="idp_process_contractsFlow" doc:id="b46fd269-2fe3-46fa-9ea2-86672ce2fca0" >
-		<http:listener doc:name="POST /process/document" doc:id="60ff541c-ed89-41e9-856b-8d46e51d79a6" path="/process/document" config-ref="REST_Trigger_HTTP_Listener_config"/>
-		<set-variable value="#[attributes.queryParams.job]" doc:name="Set JobId" doc:id="08200f2f-b5f1-4f8e-ab48-c39de2c952bf" variableName="jobId" />
-		<flow-ref doc:name="Authenticate Anypoint User" doc:id="b2254b8c-bea2-4f65-8dad-46e0c7114779" name="authenticate_Anypoint_User" />
-		<flow-ref doc:name="Read File" doc:id="43085465-1cd4-401c-90a5-9bdd0a8a4e86" name="read_File" />
-		<flow-ref doc:name="Call IDP Service - Execution" doc:id="c12f6b9b-c5ef-44a6-a875-d7784982e705" name="call_IDP_Service" />
-		<flow-ref doc:name="Get Results from IDP Service - Polling" doc:id="9b9994b1-ab6f-4529-ac17-42aadc54c289" name="get_Results_From_IDP_Service" />
-		<ee:transform doc:name="Transform Message" doc:id="75003760-d955-49bf-ab63-a35bd2af467e" >
-			<ee:message >
-				<ee:set-payload ><![CDATA[%dw 2.0
+		<http:listener doc:name="POST /process/document" doc:id="60ff541c-ed89-41e9-856b-8d46e51d79a6" path="/process/document" config-ref="REST_Trigger_HTTP_Listener_config" allowedMethods="POST"/>
+		<choice doc:name="Choice" doc:id="cef18876-2593-4c3d-8fff-7176a3856249">
+			<when expression="#[!isEmpty(attributes.queryParams.info) and attributes.queryParams.info == 'true']">
+				<scripting:execute doc:name="Execute" doc:id="aa2a86be-e772-45be-8a14-c89f430009f0" engine="Groovy">
+					<scripting:code ><![CDATA[def allVariables = muleEvent.getVariables()
+muleEvent.setPayload(allVariables)]]></scripting:code>
+				</scripting:execute>
+				<ee:transform doc:name="Transform Message" doc:id="f7cd7ef9-08dc-48c1-a337-276c5e387190">
+					<ee:message>
+						<ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{
+	payload: payload as Object,
+	vars: vars as Object pluck $$
+}]]></ee:set-payload>
+					</ee:message>
+				</ee:transform>
+			</when>
+			<otherwise>
+				<set-variable value="#[attributes.queryParams.job]" doc:name="Set JobId" doc:id="08200f2f-b5f1-4f8e-ab48-c39de2c952bf" variableName="jobId" />
+				<flow-ref doc:name="Authenticate Anypoint User" doc:id="b2254b8c-bea2-4f65-8dad-46e0c7114779" name="authenticate_Anypoint_User" />
+				<flow-ref doc:name="Read File" doc:id="43085465-1cd4-401c-90a5-9bdd0a8a4e86" name="read_File" />
+				<flow-ref doc:name="Call IDP Service - Execution" doc:id="c12f6b9b-c5ef-44a6-a875-d7784982e705" name="call_IDP_Service" />
+				<flow-ref doc:name="Get Results from IDP Service - Polling" doc:id="9b9994b1-ab6f-4529-ac17-42aadc54c289" name="get_Results_From_IDP_Service" />
+				<ee:transform doc:name="Transform Message" doc:id="75003760-d955-49bf-ab63-a35bd2af467e">
+			<ee:message>
+				<ee:set-payload><![CDATA[%dw 2.0
 output application/json
 ---
 {
@@ -30,6 +50,8 @@ output application/json
 ]]></ee:set-payload>
 			</ee:message>
 		</ee:transform>
+			</otherwise>
+		</choice>
 	</flow>
 	<sub-flow name="read_File" doc:id="cd6e6b2f-50c5-4789-9fe8-1555c820906b">
 		<db:select doc:name="Get File with Data" doc:id="830601bd-be10-41f8-ba3b-3b74f0b86fa7" config-ref="Database_Config" target="file">
@@ -72,18 +94,74 @@ output application/json
 			</ee:message>
 		</ee:transform>
 	</flow>
-	<flow name="analyze-contract-file" doc:id="2d3d9377-0466-4a0d-ba27-152254a07338" >
-		<http:listener doc:name="/analyze" doc:id="9249d043-76fd-4ebc-93ab-7d13662fb6b8" config-ref="REST_Trigger_HTTP_Listener_config" path="/analyze/test" allowedMethods="POST"/>
-		<set-variable value="#[attributes.queryParams.job]" doc:name="Set JobId" doc:id="3da3f463-50f4-40d6-94df-62c45875a181" variableName="jobId"/>
-		<set-variable value="#[%dw 2.0&#10;output application/json&#10;---&#10;payload]" doc:name="Set Contract" doc:id="e80e519c-8123-4e68-aad3-f91478648367" variableName="contract" />
-		<set-variable value="/Users/rodrigo.torres/mulesoft-work/customers/dreamfields/11.15 Rec._Christian Cannon.xlsx" doc:name="filePath" doc:id="c28de14c-f278-46c4-9bc0-ae906bc21f79" variableName="filePath" />
-		<file:read doc:name="Read" doc:id="8704fe56-749d-4b51-931b-6483acfacd3f" config-ref="File_Config" path="#[vars.filePath]" />
-		<logger level="INFO" doc:name="Logger" doc:id="8e654988-8999-43f6-ae24-d0b7ea62655a" message="File converted to json "/>
-		<set-variable value='#[%dw 2.0&#10;output application/json&#10;---&#10;read(payload, "application/xlsx") // produces an array of rows]' doc:name="Set Variable" doc:id="9adff671-98e1-40b0-a51e-5189dbf2f942" variableName="data"/>
-		<logger level="INFO" doc:name="Logger" doc:id="9bbd6125-3c44-4b5f-8487-603b0f1179d7" message='Excel file data: #[write(vars.data,   "application/json", {indent: 2})]'/>
-		<ee:transform doc:name="Transform Message" doc:id="4d29031e-fa21-4dc6-bd1c-84f01ecbc0d3" >
-			<ee:message >
-				<ee:set-payload ><![CDATA[%dw 2.0
+	<flow name="get-flows-with-prompts" doc:id="f0942a45-0aa7-4985-81eb-1389104edbb8">
+		<http:listener doc:name="GET /flows" doc:id="29519f03-66d9-40de-b8c3-dccbea43c36d" config-ref="REST_Trigger_HTTP_Listener_config" path="/flows" allowedMethods="GET" />
+		<ee:transform doc:name="Transform Message" doc:id="b4bec586-9a99-4466-99cf-172525716e07">
+			<ee:message>
+				<ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{
+	flows: [
+		{
+			name: "analyze",
+			description: "This process analyzes extracted contract data from IDP and cross references it with excel data ",
+			url: "/analyze",
+			method: "POST",
+			vars: [
+				{
+					name: "contract",
+					"type": "json",
+					"mandatory": false
+				},
+				{
+					name: "excel",
+					"type": "json",
+					mandatory: false
+				}
+			],
+			
+		}
+	]
+}]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+	</flow>
+	<sub-flow name="get-prompt" doc:id="7f69895b-7233-473f-abdb-23600d19098d" >
+		<db:select doc:name="Select" doc:id="87e19008-be05-4d41-a99e-a3c824efd1fa" config-ref="Database_Config">
+			<db:sql ><![CDATA[select content from prompts
+where id = :promptid]]></db:sql>
+			<db:input-parameters ><![CDATA[#[{
+promptid: vars.promptId
+}]]]></db:input-parameters>
+		</db:select>
+		<choice doc:name="Choice" doc:id="4f3212c6-ce63-4133-8055-ee8cb3f6c861">
+			<when expression="#[!isEmpty(payload[0].content)]">
+				<db:select doc:name="Select" doc:id="531af147-8fd3-4b23-a69e-c6b669a4a43c" target="promptVariables" config-ref="Database_Config">
+					<db:sql ><![CDATA[select variable_name 
+from prompt_variables pv
+where id = :promptid]]></db:sql>
+					<db:input-parameters ><![CDATA[#[{
+promptid: vars.promptId
+}]]]></db:input-parameters>
+				</db:select>
+				<ee:transform doc:name="Transform Message" doc:id="9b621771-0636-486c-ba74-02af6c63d82d" >
+					<ee:message >
+						<ee:set-payload ><![CDATA[%dw 2.0
+output application/java
+---
+{
+	prompt: payload[0].content,
+	vars: vars.promptVariables map (item) -> item.variable_name
+}
+]]></ee:set-payload>
+					</ee:message>
+				</ee:transform>
+			</when>
+			<otherwise>
+				<ee:transform doc:name="Transform Message" doc:id="4d29031e-fa21-4dc6-bd1c-84f01ecbc0d3">
+			<ee:message>
+				<ee:set-payload><![CDATA[%dw 2.0
 output application/json
 
 // ======================================
@@ -151,28 +229,14 @@ var fullPrompt =
 // =====================
 ---
 {
-  contract_json: vars.contractJson,
-  excel_data: excelSummaryStr,
-  prompt: fullPrompt
+  prompt: fullPrompt,
+  vars: ["contractJsonStr","excelSummaryStr"]
 }]]></ee:set-payload>
 			</ee:message>
 		</ee:transform>
-		<set-payload value='#[%dw 2.0&#10;output application/json&#10;---&#10;[{&#10;	role : "user" ,&#10;	content : write(payload, "application/json")&#10;}]]' doc:name="Set Payload" doc:id="59fab650-79cd-472f-90c0-d1ea3dedbb6e" />
-		<ms-inference:chat-completions doc:id="a842565f-764c-409d-ad6e-217310a20a54" config-ref="MuleSoft_Inference_Text_generation_config" doc:name="Call OpenAI" >
-			<repeatable-in-memory-stream />
-		</ms-inference:chat-completions>
-		<set-variable value="#[payload]" doc:name="Set Variable" doc:id="dc0b1a8b-a3a6-4b0f-baed-42c897d1a785" variableName="summary"/>
-		<file:write doc:name="Write" doc:id="d20ed588-04d6-413a-b0bd-9aa14e3c1bf9" config-ref="File_Config" path="/Users/rodrigo.torres/mulesoft-work/customers/dreamfields/output.txt"/>
-		<logger level="DEBUG" doc:name="Logger" doc:id="b6a3dc4b-9c7b-4a50-9e8c-75c11c7fdc41" message="#[payload]" />
-		<ee:transform doc:name="Transform Message" doc:id="85646e38-de61-4b51-8112-5e5a43d4491d" >
-			<ee:message >
-				<ee:set-payload ><![CDATA[%dw 2.0
-output application/json
----
-vars.summary]]></ee:set-payload>
-			</ee:message>
-		</ee:transform>
-	</flow>
+			</otherwise>
+		</choice>
+	</sub-flow>
 	<flow name="analyze-contract" doc:id="fe02a2a0-de9d-4ae5-b699-9320aca5da07">
 		<http:listener doc:name="/analyze" doc:id="51cfc361-cf28-48a2-90fc-36241c8e0e71" config-ref="REST_Trigger_HTTP_Listener_config" path="/analyze" allowedMethods="POST" />
 		<logger level="INFO" doc:name="Logger" doc:id="65ddce5e-8da8-484f-a152-0fe77015704c" message="Starting Analyze body = #[payload]"/>
@@ -194,8 +258,9 @@ output application/json
 				<logger level="INFO" doc:name="Logger" doc:id="e84fdf6d-6c27-4dd9-8e4b-e59145ddead2" message="#[payload]"/>
 			</when>
 			<otherwise >
-				<set-variable value="#[attributes.queryParams.job]" doc:name="Set JobId" doc:id="04093277-09cc-4b20-9d3a-86bce5adc046" variableName="jobId" />
-				<set-variable value="#[%dw 2.0&#10;output application/json&#10;---&#10;payload]" doc:name="Set Contract" doc:id="ccacf3c7-8412-4f30-95dd-1fe1cca9b640" variableName="contract" />
+				<set-variable value="#[payload.job_id]" doc:name="Set JobId" doc:id="04093277-09cc-4b20-9d3a-86bce5adc046" variableName="jobId" />
+				<set-variable value='#[%dw 2.0&#10;output application/json&#10;---&#10;(payload.variables filter ($.name == "contract"))[0].value as Object default {}]' doc:name="Set Contract" doc:id="ccacf3c7-8412-4f30-95dd-1fe1cca9b640" variableName="contract" />
+				<set-variable value="#[payload.prompt.id as Number default 1]" doc:name="Set Prompt ID" doc:id="b66e7d80-9135-40d1-960a-69fb4a316543" variableName="promptId"/>
 				<db:select doc:name="Get File with Data" doc:id="cafcc911-f21f-4364-8835-f3bd42fd9d5d" config-ref="Database_Config" target="xlsData">
 			<db:sql><![CDATA[select job_id, filename, file_content_base64, mime_type 
 from uploads where job_id = :job
@@ -209,117 +274,74 @@ and upload_type = 'data']]></db:sql>
 				<set-variable value="#[%dw 2.0&#10;    import * from dw::core::Binaries&#10;    output application/octet-stream  with binary// or the specific MIME type of your file (e.g., application/pdf, image/png)&#10;    ---&#10;    fromBase64(vars.xlsData[0].file_content_base64 as String) as Binary]" doc:name="Set File as Binary" doc:id="fd7c62aa-1618-4064-b597-52df74aac787" variableName="raw" />
 				<set-variable value='#[%dw 2.0output application/json&#10;---&#10;read(vars.raw, "application/xlsx") // produces an array of rows]' doc:name="Set Variable" doc:id="f1febccc-fe02-499e-ac7c-4f46842b4393" variableName="data" />
 				<logger level="INFO" doc:name="Logger" doc:id="936a22a8-1409-4400-b4ef-727e46f08b16" message='Excel file data: #[write(vars.data,   "application/json", {indent: 2})]' />
-						<ee:transform doc:name="Transform Message" doc:id="c8ad2ae3-7edc-4895-9fb9-5e0f0a3d9317">
-			<ee:message>
-				<ee:set-payload><![CDATA[%dw 2.0
+				<flow-ref doc:name="Get Prompt" doc:id="eb615069-5a11-432c-9f62-04120d0ff7ee" name="get-prompt"/>
+						<ee:transform doc:name="Transform Message" doc:id="d83d03e9-f8b1-498d-a4d0-d77bcf18fd17">
+							<ee:message>
+								<ee:set-payload><![CDATA[%dw 2.0
 output application/json
 
-// ======================================
-// === Prepare JSON strings for prompt ===
-// ======================================
 var contractJsonStr = write(vars.contract, "application/json", {indent: 2})
 var excelSummaryStr = write(vars.data,   "application/json", {indent: 2})
 
-// ============================
-// === Build the full prompt ===
-// ============================
-var fullPrompt =
-    "You are a **business and data analyst** specializing in **contract compliance validation** for distribution agreements.\n" ++
-    "Your task is to **analyze customer sales data in Excel format** against the provided contract reference data.\n\n" ++
-    "---\n\n" ++
-    "### 📝 Contract Data (JSON)\n" ++
-    contractJsonStr ++ "\n\n" ++
-    "---\n\n" ++
-    "### 🎯 Your Objectives\n" ++
-    "1. **Validate** the provided Excel dataset against the contract:\n" ++
-    "   - Compare all product SKUs listed in the contract to those in the Excel file.\n" ++
-    "   - Check quantities, limits, pricing logic, and promotional mechanics.\n" ++
-    "   - Identify missing, extra, or mismatched products.\n" ++
-    "   - Evaluate compliance with all contract terms (funding split, bundle type, daily unit limits, etc.).\n\n" ++
-    "2. **Generate outputs in two parts:**\n" ++
-    "   - **(A) JSON Summary:** A structured JSON object with standardized sections for automation.\n" ++
-    "   - **(B) Markdown Report:** A human-readable `.md` report summarizing your findings.\n\n" ++
-    "---\n\n" ++
-    "### ⚙️ Output Specification\n\n" ++
-    "#### (A) JSON Summary (Machine-Readable)\n" ++
-    "Output a single JSON object with the following top-level structure:\n" ++
-    "```json\n" ++
-    "{\n" ++
-    "  \"contract_summary\": {\n" ++
-    "    \"document\": \"...\",\n" ++
-    "    \"terms\": [...],\n" ++
-    "    \"products_reference\": [...]\n" ++
-    "  },\n" ++
-    "  \"validation_summary\": {\n" ++
-    "    \"matched_products\": [...],\n" ++
-    "    \"missing_products\": [...],\n" ++
-    "    \"over_limit_products\": [...],\n" ++
-    "    \"quantity_discrepancies\": [...],\n" ++
-    "    \"pricing_issues\": [...],\n" ++
-    "    \"term_violations\": [...]\n" ++
-    "  },\n" ++
-    "  \"anomalies_detected\": [\n" ++
-    "    {\"issue\": \"...\", \"explanation\": \"...\", \"possible_cause\": \"...\"}\n" ++
-    "  ],\n" ++
-    "  \"compliance_score\": \"XX%\",\n" ++
-    "  \"recommendations\": [\n" ++
-    "    \"...\"\n" ++
-    "  ]\n" ++
-    "}\n" ++
-    "```\n\n" ++
-    "---\n\n" ++
-    "### 📊 Excel Data (Aggregated Summary)\n" ++
-    "Use this JSON as the ground truth for product totals:\n\n" ++
-    excelSummaryStr ++ "\n\n" ++
-    "Return **JSON first** (per schema above), then **Markdown**.\n" ++
-    "Follow all rules and structure from the Contract Compliance Prompt Template."
-
-// =====================
-// === Final output  ===
-// =====================
 ---
 {
-  contract_json: vars.contractJson,
-  excel_data: excelSummaryStr,
-  prompt: fullPrompt
-}]]></ee:set-payload>
-			</ee:message>
-		</ee:transform>
-				<set-payload value='#[%dw 2.0&#10;output application/json&#10;---&#10;[{&#10;	role : "user" ,&#10;	content : write(payload, "application/json")&#10;}]]' doc:name="Set Payload" doc:id="e86f3da7-d1cc-49d1-8435-90c92dac2eaa" />
+  prompt: payload.prompt,
+  instructions: "Follow the instructions precisely, do not add any information not provided. Do not ask qny questions. Use the template and replace anything between {{}} with an element of the data provided. If none, use all the data. Do not add any comments inside the json file with // or /**/ at all, CRITICAL FORMATTING RULES: 1. Start with ```json (not ``` or other variants) 2. After the closing ```, use exactly: \n\n---\n\n 3. Then start the markdown section with # heading 4. Do NOT include any comments like \/\/ Additional products... in the JSON",
+  vars: payload.vars,
+  data: write({
+	  contract: contractJsonStr,
+	  excel: excelSummaryStr
+  },   "application/json", {indent: 2})
+}
+]]></ee:set-payload>
+							</ee:message>
+						</ee:transform>
 				<logger level="INFO" doc:name="Logger" doc:id="8a257002-7890-4b4f-b432-57a144b555c3" message="Sending data #[payload]"/>
-						<ms-inference:chat-completions doc:name="Call OpenAI" doc:id="e491fa8a-808d-4e00-b487-bc743f5286e1" config-ref="MuleSoft_Inference_Text_generation_config">
-			<repeatable-in-memory-stream />
-		</ms-inference:chat-completions>
+						<ms-inference:agent-define-prompt-template doc:name="[Agent] Define Prompt Template" doc:id="413144a2-336c-4d62-bc6c-d1abd717508b" config-ref="MuleSoft_Inference_Text_generation_config" >
+							<ms-inference:template ><![CDATA[#[payload.prompt]]]></ms-inference:template>
+							<ms-inference:instructions ><![CDATA[#[payload.instructions]]]></ms-inference:instructions>
+							<ms-inference:data ><![CDATA[#[payload.data]]]></ms-inference:data>
+						</ms-inference:agent-define-prompt-template>
+						<logger level="INFO" doc:name="Logger" doc:id="324c57e7-9f13-4e79-ad28-377631474b05" message="#[payload]"/>
 						<ee:transform doc:name="Transform Message1" doc:id="a0d6a402-b8a4-46e6-9864-0b96bcbd3e9b">
 			<ee:message>
 				<ee:set-payload><![CDATA[%dw 2.0
 output application/json
+import * from dw::core::Strings
 
-// Extract the JSON part and the markdown part
-var fullResponse = payload.response
+// Remove all comments
+var cleanedResponse = payload.response replace /\/\/.*(\n|$)/ with ""
 
-// Find where JSON ends (look for the closing brace followed by triple backticks)
-var jsonEndMarker = "```\n\n---"
-var jsonStartMarker = "```json\n"
+// Split by triple backticks to get the JSON
+var parts = cleanedResponse splitBy "```"
 
-// Extract JSON string
-var jsonStart = fullResponse indexOf jsonStartMarker
-var jsonContent = fullResponse[jsonStart + sizeOf(jsonStartMarker) to -1]
-var jsonEnd = jsonContent indexOf jsonEndMarker
-var jsonString = jsonContent[0 to jsonEnd - 1]
+// parts[1] should be the JSON (may have "json" prefix)
+var jsonWithPrefix = trim(parts[1])
+// Remove "json" prefix if it exists
+var jsonString = if (jsonWithPrefix startsWith "json")
+    trim(jsonWithPrefix[4 to -1])
+else
+    jsonWithPrefix
 
-// Extract markdown (everything after the JSON block)
-var markdownStart = fullResponse indexOf "---\n\n#"
-var markdownContent = if (markdownStart != -1) 
-    fullResponse[markdownStart + 5 to -1] 
-    else ""
+// Find the markdown section (could start with either "---" or "```")
+var markdownStartDashes = cleanedResponse indexOf "\n---\n"
+var markdownStartBackticks = cleanedResponse indexOf ("\n```\n#")
+
+// Use whichever marker is found
+var markdownStart = if (markdownStartDashes != -1) markdownStartDashes
+                    else if (markdownStartBackticks != -1) markdownStartBackticks
+                    else -1
+
+var markdownContent = if (markdownStart != -1)
+    trim(cleanedResponse[markdownStart + 5 to -1])
+else ""
 
 ---
 {
-	status: "SUCCEEDED",
-  	analysis_markdown: markdownContent,
-    jsonData: read(jsonString as String default "{}", "application/json"),
-	data_table: []
+    status: "SUCCEEDED",
+    analysis_markdown: markdownContent,
+    jsonData: read(jsonString, "application/json"),
+    data_table: []
 }]]></ee:set-payload>
 			</ee:message>
 		</ee:transform>
