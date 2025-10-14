@@ -271,9 +271,17 @@ and upload_type = 'data']]></db:sql>
 		</db:select>
 				<choice doc:name="Choice" doc:id="deb58733-0444-42ce-9767-b7dda13a15ca">
 			<when expression="#[!isEmpty(payload[0])]">
-				<set-variable value="#[%dw 2.0&#10;    import * from dw::core::Binaries&#10;    output application/octet-stream  with binary// or the specific MIME type of your file (e.g., application/pdf, image/png)&#10;    ---&#10;    fromBase64(vars.xlsData[0].file_content_base64 as String) as Binary]" doc:name="Set File as Binary" doc:id="fd7c62aa-1618-4064-b597-52df74aac787" variableName="raw" />
-				<set-variable value='#[%dw 2.0output application/json&#10;---&#10;read(vars.raw, "application/xlsx") // produces an array of rows]' doc:name="Set Variable" doc:id="f1febccc-fe02-499e-ac7c-4f46842b4393" variableName="data" />
-				<logger level="INFO" doc:name="Logger" doc:id="936a22a8-1409-4400-b4ef-727e46f08b16" message='Excel file data: #[write(vars.data,   "application/json", {indent: 2})]' />
+				<choice doc:name="Choice" doc:id="e308ef93-289f-43db-b608-a915599bdf64">
+							<when expression='#[vars.xlsData[0].mime_type == "text/csv"]'>
+								<set-variable value="#[%dw 2.0&#10;    import * from dw::core::Binaries&#10;    output application/octet-stream  with binary// or the specific MIME type of your file (e.g., application/pdf, image/png)&#10;    ---&#10;    fromBase64(vars.xlsData[0].file_content_base64 as String) as Binary]" doc:name="Set File as Binary" doc:id="6343cb51-ef56-43eb-af14-21e6cbe201c1" variableName="raw" />
+								<set-variable value='#[%dw 2.0output application/json&#10;---&#10;read(vars.raw, "test/csv") // produces an array of rows]' doc:name="Set Variable" doc:id="d04b1a32-5645-4a60-8297-db65a91f5318" variableName="data" />
+							</when>
+							<otherwise >
+								<set-variable value="#[%dw 2.0&#10;    import * from dw::core::Binaries&#10;    output application/octet-stream  with binary// or the specific MIME type of your file (e.g., application/pdf, image/png)&#10;    ---&#10;    fromBase64(vars.xlsData[0].file_content_base64 as String) as Binary]" doc:name="Set File as Binary" doc:id="fd7c62aa-1618-4064-b597-52df74aac787" variableName="raw" />
+								<set-variable value='#[%dw 2.0output application/json&#10;---&#10;read(vars.raw, "application/xlsx") // produces an array of rows]' doc:name="Set Variable" doc:id="a09a23be-61f2-4a04-baef-262b04c7c92a" variableName="data" />
+							</otherwise>
+						</choice>
+						<logger level="INFO" doc:name="Logger" doc:id="936a22a8-1409-4400-b4ef-727e46f08b16" message='Excel file data: #[write(vars.data,   "application/json", {indent: 2})]' />
 				<flow-ref doc:name="Get Prompt" doc:id="eb615069-5a11-432c-9f62-04120d0ff7ee" name="get-prompt"/>
 						<ee:transform doc:name="Transform Message" doc:id="d83d03e9-f8b1-498d-a4d0-d77bcf18fd17">
 							<ee:message>
@@ -453,6 +461,37 @@ payload]]></ee:set-payload>
 			</choice>
 		</until-successful>
 	</sub-flow>
+	<flow name="idp_process_contractsFlow1" doc:id="1696f863-9cfd-441f-8b6b-8178440acde1" >
+		<http:listener doc:name="GET /check/csv" doc:id="41e7b28b-1c06-4efb-9ac3-b3d361013ca3" config-ref="REST_Trigger_HTTP_Listener_config" path="/check/csv"/>
+		<db:select doc:name="Get File with Data" doc:id="f2c45241-dce8-40de-99db-464aa3233b41" config-ref="Database_Config" target="xlsData" >
+			<db:sql ><![CDATA[select job_id, filename, file_content_base64, mime_type 
+from uploads where job_id = :job
+and upload_type = 'data']]></db:sql>
+			<db:input-parameters ><![CDATA[#[{
+	job: attributes.queryParams.jobId
+}]]]></db:input-parameters>
+		</db:select>
+		<choice doc:name="Choice" doc:id="04ee9d8c-6977-47b0-9ae9-36145d7e2f9f" >
+			<when expression='#[vars.xlsData[0].mime_type == "text/csv"]' >
+				<set-variable value="#[%dw 2.0&#10;    import * from dw::core::Binaries&#10;    output application/octet-stream  with binary// or the specific MIME type of your file (e.g., application/pdf, image/png)&#10;    ---&#10;    fromBase64(vars.xlsData[0].file_content_base64 as String) as Binary]" doc:name="Set File as Binary" doc:id="a6f345d4-bda3-4213-94eb-170d45fa26c3" variableName="raw" />
+				<set-variable value='#[%dw 2.0output application/json&#10;---&#10;read(vars.raw, "application/csv") // produces an array of rows]' doc:name="Set Variable" doc:id="e06bd652-c987-4ad1-b3ac-95975d666e09" variableName="data" />
+			</when>
+			<otherwise >
+				<set-variable value="#[%dw 2.0&#10;    import * from dw::core::Binaries&#10;    output application/octet-stream  with binary// or the specific MIME type of your file (e.g., application/pdf, image/png)&#10;    ---&#10;    fromBase64(vars.xlsData[0].file_content_base64 as String) as Binary]" doc:name="Set File as Binary" doc:id="e3887179-f73b-4711-876e-381c374e6e92" variableName="raw" />
+				<set-variable value='#[%dw 2.0output application/csv&#10;---&#10;(read(vars.raw, "application/xlsx", {header: true})[0])]' doc:name="Set Variable" doc:id="b0b8f3e7-8c49-469e-9cd0-3cb2a969d548" variableName="csv"/>
+				<set-variable value='#[%dw 2.0&#10;output application/json&#10;---&#10;read(&#10;((write(vars.csv, "application/csv")splitBy "\n" )[1 to -1])&#10;joinBy "\n", "application/csv"&#10;)]' doc:name="Set Variable" doc:id="67097db7-c0ed-479a-a15f-2f939ae8fdcb" variableName="data" />
+			</otherwise>
+		</choice>
+		<logger level="INFO" doc:name="Logger" doc:id="3ec26382-398f-4098-83ea-42956f01bdd6" message='Excel file data: #[write(vars.data,   "application/json", {indent: 2})]' />
+		<ee:transform doc:name="Transform Message" doc:id="6c4ea740-4321-4df0-bd57-5a695b41c012" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+vars.data]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+	</flow>
 	<sub-flow name="authenticate_Anypoint_User" doc:id="2fcc2967-77b9-428b-a266-e2bc192a0720" >
 		<http:request method="${http.post_method}" doc:name="Authenticate" doc:id="dbb79976-02ff-4632-8ddf-8468168dd778" config-ref="Anypoint_HTTP_Request_configuration" path="${anypoint_http_request.auth_path}" >
 			<http:body ><![CDATA[#[%dw 2.0
