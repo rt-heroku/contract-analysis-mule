@@ -39,17 +39,34 @@ output application/json
 			<ee:message>
 				<ee:set-payload><![CDATA[%dw 2.0
 output application/json
+import * from dw::core::Strings
+import * from dw::Runtime
+// Helper function to parse JSON if valid, otherwise return as-is
+fun parseIfJson(str: String): Any = 
+    try(() -> read(str, "application/json")) orElse str
+
+// Process the fields
+var processedFields = payload.fields mapObject ((fieldValue, fieldKey) -> {
+    // Get the value from the field
+    (fieldKey): if (fieldKey == "terms")
+        // For 'terms' field, split by "." and process each part
+        (fieldValue.value splitBy ".") map trim($)
+    else
+        // For other fields, check if it's JSON and parse if needed
+        parseIfJson(fieldValue.value)
+})
+
 ---
 {
     id: payload.id,
-    document: payload.documentName,
+    documentName: payload.documentName,
     status: payload.status,
-    terms: payload.fields.terms.value splitBy  ".",
-    products: payload.fields.products.value splitBy  "."
-}
-]]></ee:set-payload>
+    (processedFields),
+    tables: payload.tables
+}]]></ee:set-payload>
 			</ee:message>
 		</ee:transform>
+				<logger level="INFO" doc:name="Logger" doc:id="ee72fed4-c699-48c1-a248-a290166ea8ae" message="Formatted Return from IDP: #[payload]"/>
 			</otherwise>
 		</choice>
 	</flow>
@@ -396,21 +413,12 @@ output multipart/form-data boundary="--------------------------abc123"
 				"Content-Type" : "application/pdf"
 				},
 			content : vars.fileData
-			},
-		configuration: {
-			headers : {
-				"Content-Disposition" : {
-					"name": "configuration",
-					"subtype": "form-data"
-					},
-				"Content-Type" : "application/json"
-				},
-			content : vars.configuration
-		}
+			}
 		}
 }]]></ee:set-payload>
 			</ee:message>
 		</ee:transform>
+		<logger level="INFO" doc:name="Logger" doc:id="ef777a77-2031-4789-9f8e-4a1d8188840d" message="#[&quot;Calling IDP:  &quot; ++   p('idp_http_request.host') ++ &quot;/&quot; ++ p('idp_http_request.base_path') ++ &quot;/&quot; ++  p('idp_http_request.executions_path')]"/>
 		<http:request method="${http.post_method}" doc:name="Call IDP Service" doc:id="12a5e9fd-451e-4342-bd93-49d7d84134b1" config-ref="IDP_HTTP_Request_configuration" path="${idp_http_request.executions_path}">
 			<http:headers><![CDATA[#[output application/java
 ---
@@ -510,5 +518,51 @@ output application/x-www-form-urlencoded
 		</http:request>
 		<set-variable value="#[payload.access_token]" doc:name="Bearer Token" doc:id="3e90ea13-7d25-4574-a092-ea55bd93c7f7" variableName="token" />
 		<logger level="INFO" doc:name="Logger" doc:id="87501f42-7cdf-4dcf-ae31-c28a08b1aa7d" message='#["============================ BEARER TOKEN:     " ++ vars.token ++ "      ============================"]' />
+	</sub-flow>
+	<sub-flow name="call_IDP_Service-Original" doc:id="400e3129-d521-4f88-b922-a06afa198599" >
+		<set-variable value='#[%dw 2.0&#10;output application/json&#10;---&#10;{&#10;    "type": "GENERIC",&#10;    "queries": [&#10;        {&#10;            "query": "Extract the promotional terms for each product",&#10;            "name": "terms"&#10;        },&#10;        {&#10;            "query": "Give me a list of products, units sold, reference price",&#10;            "name": "products"&#10;        },&#10;        {&#10;            "query": "What is the requestor name?",&#10;            "name": "req_name"&#10;        },&#10;        {&#10;            "query": "This is a selling contract ofr a distributor with a retailer, Summarize the document content.",&#10;            "name": "documentSummary"&#10;        }&#10;    ],&#10;    "features": [&#10;        "QUERIES"&#10;    ],&#10;    "analyzers": [&#10;        &#10;    ],&#10;    "confidenceScore": 80&#10;}]' doc:name="configuration" doc:id="00bd52a0-2798-4ec0-bd15-c378a72328a3" variableName="configuration" />
+		<ee:transform doc:name="Transform Message" doc:id="cb945ab5-f35f-4c2d-a969-eb3dd37a70a1" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+import dw::module::Multipart
+import * from dw::core::Binaries
+output multipart/form-data boundary="--------------------------abc123"
+---
+{
+	parts : {
+		file : {
+			headers : {
+				"Content-Disposition" : {
+					"name": "file",
+					"filename": vars.file[0].filename,
+					"subtype": "form-data"
+					},
+				"Content-Type" : "application/pdf"
+				},
+			content : vars.fileData
+			},
+		configuration: {
+			headers : {
+				"Content-Disposition" : {
+					"name": "configuration",
+					"subtype": "form-data"
+					},
+				"Content-Type" : "application/json"
+				},
+			content : vars.configuration
+		}
+		}
+}]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<http:request doc:name="Call IDP Service" doc:id="fc7e4b7f-168c-4ccb-8ee1-1b170cf78151" config-ref="IDP_HTTP_Request_configuration" method="${http.post_method}" path="${idp_http_request.executions_path}" >
+			<http:headers ><![CDATA[#[output application/java
+---
+{
+	"Authorization" : "Bearer " ++ vars.token as String
+}]]]></http:headers>
+		</http:request>
+		<set-variable value="#[payload.id as String]" doc:name="executionId" doc:id="7ddb14f0-a790-46a5-ac22-e59b3813f288" variableName="executionId" />
+		<logger level="INFO" doc:name="Logger" doc:id="8240674e-19a4-48b8-bbc1-7586c29be124" message='#["============================ EXECUTION ID:     " ++ vars.executionId ++ "      ============================"]' />
 	</sub-flow>
 </mule>
