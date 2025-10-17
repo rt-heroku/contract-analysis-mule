@@ -1,0 +1,42 @@
+http:
+    post_method: "POST"
+    get_method: "GET"
+    
+anypoint_http_request:
+    host: "anypoint.mulesoft.com"
+    base_path: "/accounts/api/v2"
+    auth_path: "/oauth2/token"
+    auth_grant_type: "client_credentials"
+    auth_client_id: ""
+    auth_client_secret: ""
+    
+    
+idp_http_request:
+    host: "idp-rt.us-east-1.anypoint.mulesoft.com"
+    base_path: "/api/v1/organizations/XXXXXXXXXXXXXXXXXXXXXXXXXXXXXX/"
+    executions_path: "actions/YYYYYYYYYYYYYYYYYYYYYY/versions/1.2.0/executions"
+    executions_by_id_path: "actions/YYYYYYYYYYYYYYYYYYYYYYYYYYYYYYY/1.2.0/executions/{executionId}"
+    
+mac:
+  heroku:
+    inference_key:  ""
+  openai_key:  ""
+
+file_connector:
+    workingDirectory: ""
+    
+#u1fe1j8bu3idk6:pbd9f3a71e721518825ca06b17edb43c8293406eae5b067581d3bc85be1672e2c@ec2-13-216-70-205.compute-1.amazonaws.com:5432/dc2s0aibe7pq5b
+db:
+  host: ""
+  port: "5432"
+  user: ""
+  password: ""
+  database: ""
+  maxPoolSize: "10"
+  minPoolSize: "2"
+  accIncrement: "1"
+  psCacheSize: "5"
+  maxWait: "30"
+  maxIdleTime: "0"
+  maxStatements: "0"
+  frecuency: "10"

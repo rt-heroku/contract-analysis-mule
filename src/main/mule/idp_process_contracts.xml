@@ -66,7 +66,7 @@ var processedFields = payload.fields mapObject ((fieldValue, fieldKey) -> {
 }]]></ee:set-payload>
 			</ee:message>
 		</ee:transform>
-				<logger level="INFO" doc:name="Logger" doc:id="ee72fed4-c699-48c1-a248-a290166ea8ae" message="Formatted Return from IDP: #[payload]"/>
+				<logger level="DEBUG" doc:name="Logger" doc:id="ee72fed4-c699-48c1-a248-a290166ea8ae" message="Formatted Return from IDP: #[payload]"/>
 			</otherwise>
 		</choice>
 	</flow>
@@ -390,7 +390,7 @@ output application/json
 		</choice>
 			</otherwise>
 		</choice>
-		<logger level="INFO" doc:name="Logger" doc:id="d138f9a6-25ed-4843-b7be-282f3ea43095" message="Sending back #[payload]" />
+		<logger level="DEBUG" doc:name="Logger" doc:id="d138f9a6-25ed-4843-b7be-282f3ea43095" message="Sending back #[payload]" />
 	</flow>
 	<sub-flow name="call_IDP_Service" doc:id="55f3e881-e393-4253-90fd-5176d91dda6a">
 		<set-variable value='#[%dw 2.0&#10;output application/json&#10;---&#10;{&#10;    "type": "GENERIC",&#10;    "queries": [&#10;        {&#10;            "query": "Extract the promotional terms for each product",&#10;            "name": "terms"&#10;        },&#10;        {&#10;            "query": "Give me a list of products, units sold, reference price",&#10;            "name": "products"&#10;        },&#10;        {&#10;            "query": "What is the requestor name?",&#10;            "name": "req_name"&#10;        },&#10;        {&#10;            "query": "This is a selling contract ofr a distributor with a retailer, Summarize the document content.",&#10;            "name": "documentSummary"&#10;        }&#10;    ],&#10;    "features": [&#10;        "QUERIES"&#10;    ],&#10;    "analyzers": [&#10;        &#10;    ],&#10;    "confidenceScore": 80&#10;}]' doc:name="configuration" doc:id="6849b8b7-474b-4c9c-ba0c-511c339a7b58" variableName="configuration" />
