@@ -20,7 +20,7 @@ http://www.mulesoft.org/schema/mule/ms-inference http://www.mulesoft.org/schema/
 	<http:request-config name="Anypoint_HTTP_Request_configuration" doc:name="HTTP Request configuration" doc:id="a5890d43-9f30-4387-baf5-540216873c23" basePath="${anypoint_http_request.base_path}" >
 		<http:request-connection protocol="HTTPS" host="${anypoint_http_request.host}" connectionIdleTimeout="60000"/>
 	</http:request-config>
-	<http:request-config name="IDP_HTTP_Request_configuration" doc:name="HTTP Request configuration" doc:id="a0621cda-cd08-41a0-8d9c-7b9108090e4b" basePath="${idp_http_request.base_path}">
+	<http:request-config name="IDP_HTTP_Request_configuration" doc:name="HTTP Request configuration" doc:id="a0621cda-cd08-41a0-8d9c-7b9108090e4b">
 		<http:request-connection protocol="HTTPS" host="${idp_http_request.host}" connectionIdleTimeout="60000"/>
 	</http:request-config>
     <db:config name="Database_Config" doc:name="Database Config" doc:id="50a5e914-e3b8-4039-95e0-a26b6b8394b9" >

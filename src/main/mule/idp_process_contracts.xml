@@ -11,6 +11,9 @@ http://www.mulesoft.org/schema/mule/db http://www.mulesoft.org/schema/mule/db/cu
 http://www.mulesoft.org/schema/mule/scripting http://www.mulesoft.org/schema/mule/scripting/current/mule-scripting.xsd">
 	<flow name="idp_process_contractsFlow" doc:id="b46fd269-2fe3-46fa-9ea2-86672ce2fca0" >
 		<http:listener doc:name="POST /process/document" doc:id="60ff541c-ed89-41e9-856b-8d46e51d79a6" path="/process/document" config-ref="REST_Trigger_HTTP_Listener_config" allowedMethods="POST"/>
+		<logger level="INFO" doc:name="Logger" doc:id="13d639d7-3de0-4bcf-a442-62da4e31cbc6" message="Entering /rpocess/document with payload: #[payload]"/>
+		<set-variable value='#[%dw 2.0&#10;output application/java&#10;---&#10;{&#10;  job_id: payload.job_id  as String,&#10;  auth_client_id: payload.auth_client_id  as String,&#10;  auth_client_secret: payload.auth_client_secret  as String,&#10;  idp_http_request: {&#10;    host: payload.idp_http_request.host  as String,&#10;    base_path: payload.idp_http_request.base_path  as String,&#10;    executions_path: payload.idp_http_request.executions_path  as String,&#10;    protocol: payload.idp_http_request.protocol  as String&#10;  },&#10;  full_url: "https://" ++ payload.idp_http_request.host  as String&#10;  				++ payload.idp_http_request.base_path as String&#10;  				++ payload.idp_http_request.executions_path  as String&#10;}]' doc:name="Set Variable" doc:id="f49d7ed5-457f-45a8-9eb8-2d1e4aa3c931" variableName="idpExecution"/>
+		<logger level="INFO" doc:name="Logger" doc:id="b7a9a510-4f97-4c5b-a2f6-7df5f37b0a18" message="Variable idpExecution = #[vars.idpExecution]"/>
 		<choice doc:name="Choice" doc:id="cef18876-2593-4c3d-8fff-7176a3856249">
 			<when expression="#[!isEmpty(attributes.queryParams.info) and attributes.queryParams.info == 'true']">
 				<scripting:execute doc:name="Execute" doc:id="aa2a86be-e772-45be-8a14-c89f430009f0" engine="Groovy">
@@ -30,7 +33,7 @@ output application/json
 				</ee:transform>
 			</when>
 			<otherwise>
-				<set-variable value="#[attributes.queryParams.job]" doc:name="Set JobId" doc:id="08200f2f-b5f1-4f8e-ab48-c39de2c952bf" variableName="jobId" />
+				<set-variable value="#[vars.idpExecution.job_id as String]" doc:name="Set JobId" doc:id="08200f2f-b5f1-4f8e-ab48-c39de2c952bf" variableName="jobId" />
 				<flow-ref doc:name="Authenticate Anypoint User" doc:id="b2254b8c-bea2-4f65-8dad-46e0c7114779" name="authenticate_Anypoint_User" />
 				<flow-ref doc:name="Read File" doc:id="43085465-1cd4-401c-90a5-9bdd0a8a4e86" name="read_File" />
 				<flow-ref doc:name="Call IDP Service - Execution" doc:id="c12f6b9b-c5ef-44a6-a875-d7784982e705" name="call_IDP_Service" />
@@ -418,8 +421,8 @@ output multipart/form-data boundary="--------------------------abc123"
 }]]></ee:set-payload>
 			</ee:message>
 		</ee:transform>
-		<logger level="INFO" doc:name="Logger" doc:id="ef777a77-2031-4789-9f8e-4a1d8188840d" message="#[&quot;Calling IDP:  &quot; ++   p('idp_http_request.host') ++ &quot;/&quot; ++ p('idp_http_request.base_path') ++ &quot;/&quot; ++  p('idp_http_request.executions_path')]"/>
-		<http:request method="${http.post_method}" doc:name="Call IDP Service" doc:id="12a5e9fd-451e-4342-bd93-49d7d84134b1" config-ref="IDP_HTTP_Request_configuration" path="${idp_http_request.executions_path}">
+		<logger level="INFO" doc:name="Logger" doc:id="ef777a77-2031-4789-9f8e-4a1d8188840d" message='#["Calling IDP:  " ++   vars.idpExecution.full_url as String default ""]'/>
+		<http:request method="${http.post_method}" doc:name="Call IDP Service" doc:id="12a5e9fd-451e-4342-bd93-49d7d84134b1" config-ref="IDP_HTTP_Request_configuration" url="#[vars.idpExecution.full_url]">
 			<http:headers><![CDATA[#[output application/java
 ---
 {
@@ -431,9 +434,9 @@ output multipart/form-data boundary="--------------------------abc123"
 	</sub-flow>
 	<sub-flow name="get_Results_From_IDP_Service" doc:id="c3dee76d-0dc9-4181-b9e2-1832782f63a8" >
 		<until-successful maxRetries="20" doc:name="Until Successful" doc:id="1e8e66be-ac36-4244-8cba-0cb63e5ee9af" millisBetweenRetries="6000" >
-			<set-variable value="#[output application/java --- p('idp_http_request.executions_path') ++ &quot;/&quot; ++ vars.executionId as String]" doc:name="Set Variable" doc:id="ad073bb5-1e33-4883-a451-f99721d7144f" variableName="url"/>
-			<logger level="INFO" doc:name="Logger" doc:id="7b0c9a8e-2b05-4844-b03c-3d3a392600e4" message="Calling idp: https://${idp_http_request.host}${idp_http_request.base_path}#[vars.url]" />
-			<http:request method="${http.get_method}" doc:name="Get Results from IDP Service" doc:id="f21ed189-f013-4f39-ad63-5e5ebb616a02" config-ref="IDP_HTTP_Request_configuration" sendBodyMode="NEVER" path="#[vars.url]">
+			<set-variable value='#[output application/java --- vars.idpExecution.full_url as String ++ "/" ++ vars.executionId as String]' doc:name="Set Variable" doc:id="ad073bb5-1e33-4883-a451-f99721d7144f" variableName="url"/>
+			<logger level="INFO" doc:name="Logger" doc:id="7b0c9a8e-2b05-4844-b03c-3d3a392600e4" message="Calling idp: #[vars.url]" />
+			<http:request method="${http.get_method}" doc:name="Get Results from IDP Service" doc:id="f21ed189-f013-4f39-ad63-5e5ebb616a02" config-ref="IDP_HTTP_Request_configuration" sendBodyMode="NEVER" url="#[vars.url]">
 				<http:headers ><![CDATA[#[output application/java
 ---
 {
@@ -507,8 +510,8 @@ output application/x-www-form-urlencoded
 ---
 {
 	"grant_type":p('anypoint_http_request.auth_grant_type'),
-	"client_id":p('anypoint_http_request.auth_client_id'),
-	"client_secret":p('anypoint_http_request.auth_client_secret')
+	"client_id": vars.idpExecution.auth_client_id,
+	"client_secret": vars.idpExecution.auth_client_secret
 }]]]></http:body>
 			<http:headers ><![CDATA[#[output application/java
 ---
@@ -555,7 +558,7 @@ output multipart/form-data boundary="--------------------------abc123"
 }]]></ee:set-payload>
 			</ee:message>
 		</ee:transform>
-		<http:request doc:name="Call IDP Service" doc:id="fc7e4b7f-168c-4ccb-8ee1-1b170cf78151" config-ref="IDP_HTTP_Request_configuration" method="${http.post_method}" path="${idp_http_request.executions_path}" >
+		<http:request doc:name="Call IDP Service" doc:id="fc7e4b7f-168c-4ccb-8ee1-1b170cf78151" config-ref="IDP_HTTP_Request_configuration" method="${http.post_method}" url="#[vars.idpExecution.full_url]">
 			<http:headers ><![CDATA[#[output application/java
 ---
 {
