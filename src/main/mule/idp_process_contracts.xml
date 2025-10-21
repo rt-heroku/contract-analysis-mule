@@ -38,6 +38,34 @@ output application/json
 				<flow-ref doc:name="Read File" doc:id="43085465-1cd4-401c-90a5-9bdd0a8a4e86" name="read_File" />
 				<flow-ref doc:name="Call IDP Service - Execution" doc:id="c12f6b9b-c5ef-44a6-a875-d7784982e705" name="call_IDP_Service" />
 				<flow-ref doc:name="Get Results from IDP Service - Polling" doc:id="9b9994b1-ab6f-4529-ac17-42aadc54c289" name="get_Results_From_IDP_Service" />
+				<!-- [STUDIO:"Transform Message"]<ee:transform doc:name="Transform Message" doc:id="1cb7be50-f7a9-4a9c-bfca-98e4f876de62">
+							<ee:message>
+								<ee:set-payload><![CDATA[%dw 2.0
+output application/java
+
+// Check if payload has pages structure
+var hasPages = payload.pages?
+
+&#45;&#45;-
+if (hasPages)
+    // Already has pages, return as-is
+    payload
+else
+    // Add pages structure
+    {
+        id: payload.id,
+        documentName: payload.documentName,
+        status: payload.status,
+        pages: [
+            {
+                page: 1,
+                fields: payload.fields,
+                tables: payload.tables default [&#93;
+            }
+        &#93;
+    }&#93;&#93;></ee:set-payload>
+							</ee:message>
+						</ee:transform> [STUDIO] -->
 				<ee:transform doc:name="Transform Message" doc:id="75003760-d955-49bf-ab63-a35bd2af467e">
 			<ee:message>
 				<ee:set-payload><![CDATA[%dw 2.0
@@ -48,28 +76,72 @@ import * from dw::Runtime
 fun parseIfJson(str: String): Any = 
     try(() -> read(str, "application/json")) orElse str
 
-// Process the fields
-var processedFields = payload.fields mapObject ((fieldValue, fieldKey) -> {
-    // Get the value from the field
-    (fieldKey): if (fieldKey == "terms")
-        // For 'terms' field, split by "." and process each part
-        (fieldValue.value splitBy ".") map trim($)
-    else
-        // For other fields, check if it's JSON and parse if needed
-        parseIfJson(fieldValue.value)
-})
+// Helper function to process fields
+fun processFields(fields: Object): Object = 
+    fields mapObject ((fieldValue, fieldKey) -> {
+        (fieldKey): if (fieldKey == "terms")
+            // For 'terms' field, split by "." and process each part
+            (fieldValue.value splitBy ".") map trim($)
+        else if (fieldValue is Object and fieldValue.value?)
+            // If it has a .value property, extract and parse if JSON
+            parseIfJson(fieldValue.value)
+        else if (fieldValue is Object)
+            // If it's a nested object (like parties), recursively process it
+            processFields(fieldValue)
+        else
+            // Otherwise return as-is
+            fieldValue
+    })
+
+// Helper function to process tables
+fun processTables(tables: Object): Object = 
+    tables mapObject ((tableValue, tableKey) -> {
+        (tableKey): if (tableValue is Array)
+            // If it's an array, process each row
+            tableValue map ((row) -> 
+                if (row is Object)
+                    // Process each field in the row to extract .value
+                    row mapObject ((cellValue, cellKey) -> {
+                        (cellKey): if (cellValue is Object and cellValue.value?)
+                            parseIfJson(cellValue.value)
+                        else
+                            cellValue
+                    })
+                else
+                    row
+            )
+        else
+            tableValue
+    })
+
+// Check if payload has pages structure or direct fields
+var hasPages = payload.pages?
+
+var processedPages = if (hasPages)
+    // Process existing pages structure
+    payload.pages map {
+        page: $.page,
+        fields: processFields($.fields),
+        tables: processTables($.tables)
+    }
+else
+    // Create pages structure from direct fields
+    [{
+        page: 1,
+        fields: processFields(payload.fields),
+        tables: processTables(payload.tables default {})
+    }]
 
 ---
 {
     id: payload.id,
     documentName: payload.documentName,
     status: payload.status,
-    (processedFields),
-    tables: payload.tables
+    pages: processedPages
 }]]></ee:set-payload>
 			</ee:message>
 		</ee:transform>
-				<logger level="DEBUG" doc:name="Logger" doc:id="ee72fed4-c699-48c1-a248-a290166ea8ae" message="Formatted Return from IDP: #[payload]"/>
+				<logger level="DEBUG" doc:name="Logger" doc:id="ee72fed4-c699-48c1-a248-a290166ea8ae" message="Formatted Return from IDP: #[payload]" />
 			</otherwise>
 		</choice>
 	</flow>
