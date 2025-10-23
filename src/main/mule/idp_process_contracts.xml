@@ -218,6 +218,9 @@ output application/json
 }]]></ee:set-payload>
 			</ee:message>
 		</ee:transform>
+		<logger level="INFO" doc:name="Logger" doc:id="226933a7-d5b2-4497-9917-2cf3055308b8" message="Entering /rpocess/document with payload: #[payload]" />
+		<set-variable value='#[%dw 2.0&#10;output application/java&#10;---&#10;{&#10;  job_id: payload.job_id  as String,&#10;  auth_client_id: payload.auth_client_id  as String,&#10;  auth_client_secret: payload.auth_client_secret  as String,&#10;  idp_http_request: {&#10;    host: payload.idp_http_request.host  as String,&#10;    base_path: payload.idp_http_request.base_path  as String,&#10;    executions_path: payload.idp_http_request.executions_path  as String,&#10;    protocol: payload.idp_http_request.protocol  as String&#10;  },&#10;  full_url: "https://" ++ payload.idp_http_request.host  as String&#10;  				++ payload.idp_http_request.base_path as String&#10;  				++ payload.idp_http_request.executions_path  as String&#10;}]' doc:name="Set Variable" doc:id="f9460b16-f09f-4943-94ec-282ebac92807" variableName="idpExecution" />
+		<logger level="INFO" doc:name="Logger1" doc:id="e902a0b8-6c82-4a3e-879f-ff4e7ac7a827" message="Variable idpExecution = #[vars.idpExecution]" />
 	</flow>
 	<sub-flow name="get-prompt" doc:id="7f69895b-7233-473f-abdb-23600d19098d" >
 		<db:select doc:name="Select" doc:id="87e19008-be05-4d41-a99e-a3c824efd1fa" config-ref="Database_Config">
@@ -329,6 +332,120 @@ var fullPrompt =
 			</otherwise>
 		</choice>
 	</sub-flow>
+	<flow name="idp-get-reviews" doc:id="5e95d743-a055-42b3-9f5f-ef22c3d26cf3" >
+		<http:listener doc:name="GET /reviews" doc:id="b0f90f2f-ff5b-4f20-af86-57a446fbcfa6" config-ref="REST_Trigger_HTTP_Listener_config" path="/reviews"/>
+		<logger level="INFO" doc:name="Logger" doc:id="a97f12ef-cc49-4fdc-99d0-b77f9f589d51" message="Entering /rpocess/document with payload: #[payload]" />
+		<set-variable value='#[%dw 2.0&#10;output application/java&#10;---&#10;{&#10;  job_id: payload.job_id  as String,&#10;  execution_id: payload.execution_id as String,&#10;  auth_client_id: payload.auth_client_id  as String,&#10;  auth_client_secret: payload.auth_client_secret  as String,&#10;  idp_http_request: {&#10;    host: payload.idp_http_request.host  as String,&#10;    base_path: payload.idp_http_request.base_path  as String,&#10;    executions_path: payload.idp_http_request.executions_path  as String,&#10;    protocol: payload.idp_http_request.protocol  as String&#10;  },&#10;  full_url: "https://" ++ payload.idp_http_request.host  as String&#10;  				++ payload.idp_http_request.base_path as String&#10;  				++ payload.idp_http_request.executions_path  as String&#10;}]' doc:name="Set Variable" doc:id="9bed424f-d019-4928-963b-9b11522e6b30" variableName="idpExecution" />
+		<logger level="INFO" doc:name="Logger1" doc:id="569f8aca-1127-40db-ab9f-ffc69a02be46" message="Variable idpExecution = #[vars.idpExecution]" />
+		<set-variable value="#[vars.idpExecution.job_id as String]" doc:name="Set JobId" doc:id="0ab5354b-2cfd-4e00-91b1-696e5383c10a" variableName="jobId" />
+		<flow-ref doc:name="Authenticate Anypoint User" doc:id="80b69931-9951-42c1-8361-0561a50e5c78" name="authenticate_Anypoint_User" />
+		<flow-ref doc:name="Call IDP Service - Execution" doc:id="96d49be2-4175-484d-bdf2-ecd0c890a108" name="call_IDP_Service" />
+		<flow-ref doc:name="Get Results from IDP Service - Polling" doc:id="4f3ddbf6-9c7b-4564-8296-b5993ff25df5" name="get_Results_From_IDP_Service" />
+		<!-- [STUDIO:"Transform Message"]<ee:transform doc:name="Transform Message" doc:id="01462d71-053b-442f-9377-3fe8f95a97b6">
+							<ee:message>
+								<ee:set-payload><![CDATA[%dw 2.0
+output application/java
+
+// Check if payload has pages structure
+var hasPages = payload.pages?
+
+&#45;&#45;-
+if (hasPages)
+    // Already has pages, return as-is
+    payload
+else
+    // Add pages structure
+    {
+        id: payload.id,
+        documentName: payload.documentName,
+        status: payload.status,
+        pages: [
+            {
+                page: 1,
+                fields: payload.fields,
+                tables: payload.tables default [&#93;
+            }
+        &#93;
+    }&#93;&#93;></ee:set-payload>
+							</ee:message>
+						</ee:transform> [STUDIO] -->
+		<ee:transform doc:name="Transform Message" doc:id="de790545-1d00-4eab-b6b7-d8e8a1ea5021">
+			<ee:message>
+				<ee:set-payload><![CDATA[%dw 2.0
+output application/json
+import * from dw::core::Strings
+import * from dw::Runtime
+// Helper function to parse JSON if valid, otherwise return as-is
+fun parseIfJson(str: String): Any = 
+    try(() -> read(str, "application/json")) orElse str
+
+// Helper function to process fields
+fun processFields(fields: Object): Object = 
+    fields mapObject ((fieldValue, fieldKey) -> {
+        (fieldKey): if (fieldKey == "terms")
+            // For 'terms' field, split by "." and process each part
+            (fieldValue.value splitBy ".") map trim($)
+        else if (fieldValue is Object and fieldValue.value?)
+            // If it has a .value property, extract and parse if JSON
+            parseIfJson(fieldValue.value)
+        else if (fieldValue is Object)
+            // If it's a nested object (like parties), recursively process it
+            processFields(fieldValue)
+        else
+            // Otherwise return as-is
+            fieldValue
+    })
+
+// Helper function to process tables
+fun processTables(tables: Object): Object = 
+    tables mapObject ((tableValue, tableKey) -> {
+        (tableKey): if (tableValue is Array)
+            // If it's an array, process each row
+            tableValue map ((row) -> 
+                if (row is Object)
+                    // Process each field in the row to extract .value
+                    row mapObject ((cellValue, cellKey) -> {
+                        (cellKey): if (cellValue is Object and cellValue.value?)
+                            parseIfJson(cellValue.value)
+                        else
+                            cellValue
+                    })
+                else
+                    row
+            )
+        else
+            tableValue
+    })
+
+// Check if payload has pages structure or direct fields
+var hasPages = payload.pages?
+
+var processedPages = if (hasPages)
+    // Process existing pages structure
+    payload.pages map {
+        page: $.page,
+        fields: processFields($.fields),
+        tables: processTables($.tables)
+    }
+else
+    // Create pages structure from direct fields
+    [{
+        page: 1,
+        fields: processFields(payload.fields),
+        tables: processTables(payload.tables default {})
+    }]
+
+---
+{
+    id: payload.id,
+    documentName: payload.documentName,
+    status: payload.status,
+    pages: processedPages
+}]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<logger level="DEBUG" doc:name="Logger" doc:id="c05f6ac4-796f-450c-9cff-094481e1450a" message="Formatted Return from IDP: #[payload]" />
+	</flow>
 	<flow name="analyze-contract" doc:id="fe02a2a0-de9d-4ae5-b699-9320aca5da07">
 		<http:listener doc:name="/analyze" doc:id="51cfc361-cf28-48a2-90fc-36241c8e0e71" config-ref="REST_Trigger_HTTP_Listener_config" path="/analyze" allowedMethods="POST" />
 		<logger level="INFO" doc:name="Logger" doc:id="65ddce5e-8da8-484f-a152-0fe77015704c" message="Starting Analyze body = #[payload]"/>

@@ -1,0 +1,259 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:mule-soft-idp-universal-rest-smart-connector="http://www.mulesoft.org/schema/mule/mule-soft-idp-universal-rest-smart-connector"
+	xmlns:http="http://www.mulesoft.org/schema/mule/http"
+	xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core" xmlns="http://www.mulesoft.org/schema/mule/core"
+	xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd 
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/mule-soft-idp-universal-rest-smart-connector http://www.mulesoft.org/schema/mule/mule-soft-idp-universal-rest-smart-connector/current/mule-mule-soft-idp-universal-rest-smart-connector.xsd">
+	
+	<flow name="idp-get-execution" doc:id="13891d2b-686f-44fd-adda-4dc8a6388ebe" >
+		<http:listener doc:name="POST /execution" doc:id="973c66a2-6ac0-4891-a7ac-cbcfdb2071a8" config-ref="REST_Trigger_HTTP_Listener_config" path="/execution" allowedMethods="POST"/>
+		<set-variable value='#[%dw 2.0&#10;output application/java&#10;---&#10;{&#10;  job_id: payload.job_id  as String,&#10;  execution_id: payload.execution_id as String default "",&#10;  auth_client_id: payload.auth_client_id  as String,&#10;  auth_client_secret: payload.auth_client_secret  as String,&#10;  anypoint_username: payload.anypoint_username,&#10;  anypoint_password: payload.anypoint_password,&#10;  action_id: payload.idp_http_request.action_id as String,&#10;  action_version: payload.idp_http_request.action_version as String,&#10;  org_id: payload.idp_http_request.org_id as String,&#10;  idp_http_request: {&#10;  	method: payload.idp_http_request.method as String default "",&#10;    host: payload.idp_http_request.host  as String,&#10;    base_path: payload.idp_http_request.base_path  as String,&#10;    protocol: payload.idp_http_request.protocol  as String&#10;  },&#10;  full_url: "https://" ++ payload.idp_http_request.host  as String&#10;  				++ payload.idp_http_request.base_path as String&#10;}]' doc:name="Set idPExecution" doc:id="2ca55eff-e741-4064-a6e9-04367bd6f458" variableName="idpExecution" />
+		<logger level="INFO" doc:name="Logger" doc:id="5f6841bd-f4ff-457d-9c78-1aa3c65edfdf" message="GET /execution - #[payload]"/>
+		<mule-soft-idp-universal-rest-smart-connector:_idp_--reviewtaskbyexecution_--fetch doc:name="🌐 IDP - ReviewTaskByExecution - Fetch" doc:id="13188949-6eae-4506-b885-82a411236cf8" config-ref="MuleSoft_IDP_BasicAuth_Config" org-id="eb16587a-02cf-43f4-aa5f-c6a924fb3635" action-id="1665e50a-9f68-43d0-a533-49bfc24d920b" execution-id="96462d68-d6dd-4eb5-be19-d8b2b67733ff"/>
+		<ee:transform doc:name="Transform Message" doc:id="940d9c2d-0f91-4c7c-817b-80a21cc8f48d" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+--- 
+payload]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+	</flow>
+	<flow name="idp-get-actions" doc:id="cf390231-3e8f-4329-be79-a20fa9da74d1" >
+		<http:listener doc:name="POST /actions" doc:id="2d66b364-503c-4f44-9dc7-fe5f4f620ed5" config-ref="REST_Trigger_HTTP_Listener_config" path="/actions"/>
+		<set-variable value='#[%dw 2.0&#10;output application/java&#10;---&#10;{&#10;  job_id: payload.job_id  as String,&#10;  execution_id: payload.execution_id as String default "",&#10;  auth_client_id: payload.auth_client_id  as String,&#10;  auth_client_secret: payload.auth_client_secret  as String,&#10;  anypoint_username: payload.anypoint_username,&#10;  anypoint_password: payload.anypoint_password,&#10;  action_id: payload.idp_http_request.action_id as String,&#10;  action_version: payload.idp_http_request.action_version as String,&#10;  org_id: payload.idp_http_request.org_id as String,&#10;  idp_http_request: {&#10;  	method: payload.idp_http_request.method as String default "",&#10;    host: payload.idp_http_request.host  as String,&#10;    base_path: payload.idp_http_request.base_path  as String,&#10;    protocol: payload.idp_http_request.protocol  as String&#10;  },&#10;  full_url: "https://" ++ payload.idp_http_request.host  as String&#10;  				++ payload.idp_http_request.base_path as String&#10;}]' doc:name="Set idPExecution" doc:id="611b4699-2fb4-4f26-ac23-c5107ab96651" variableName="idpExecution" />
+		<choice doc:name="Choice" doc:id="d942baa0-e521-4185-ab88-6e8cd3be095e" >
+			<when expression="#[isEmpty(payload.action_id)]">
+				<mule-soft-idp-universal-rest-smart-connector:_platform_--get-idp-actions-list doc:name="⚙️ Platform - Get IDP Actions List" doc:id="0fe26497-353e-4bfd-b4f2-4d166a962d9e" config-ref="MuleSoft_Anypoint_BasicAuth_Config" org-id="#[vars.idpExecution.org_id]" />
+			</when>
+			<otherwise >
+				<mule-soft-idp-universal-rest-smart-connector:_platform_--get-idp-actions-versions-list doc:name="⚙️ Platform - Get IDP Action's Versions List" doc:id="7eba8265-dfae-49ed-8bf5-38b8c2ca4d01" config-ref="MuleSoft_Anypoint_BasicAuth_Config" org-id="#[vars.idpExecution.org_id]" action-id="#[vars.idpExecution.action_id]"/>
+			</otherwise>
+		</choice>
+		<ee:transform doc:name="Transform Message" doc:id="dfc3e729-ff56-444e-a5bb-30545009c541" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+	</flow>
+	<flow name="idp-process-status" doc:id="3e0ea1f5-e625-42b6-9096-b176ea408420" >
+		<http:listener doc:name="POST /process/status" doc:id="aef40f2b-5918-4586-aff0-7a60372d55e2" config-ref="REST_Trigger_HTTP_Listener_config" path="/process/status" allowedMethods="POST"/>
+		<set-variable value='#[%dw 2.0&#10;output application/java&#10;---&#10;{&#10;  job_id: payload.job_id  as String,&#10;  execution_id: payload.execution_id as String default "",&#10;  auth_client_id: payload.auth_client_id  as String,&#10;  auth_client_secret: payload.auth_client_secret  as String,&#10;  anypoint_username: payload.anypoint_username,&#10;  anypoint_password: payload.anypoint_password,&#10;  action_id: payload.idp_http_request.action_id as String,&#10;  action_version: payload.idp_http_request.action_version as String,&#10;  org_id: payload.idp_http_request.org_id as String,&#10;  idp_http_request: {&#10;  	method: payload.idp_http_request.method as String default "",&#10;    host: payload.idp_http_request.host  as String,&#10;    base_path: payload.idp_http_request.base_path  as String,&#10;    protocol: payload.idp_http_request.protocol  as String&#10;  },&#10;  full_url: "https://" ++ payload.idp_http_request.host  as String&#10;  				++ payload.idp_http_request.base_path as String&#10;}]' doc:name="Set idPExecution" doc:id="6def1b50-95db-4c4d-ac02-5a152e6d163a" variableName="idpExecution" />
+		<logger level="INFO" doc:name="Logger" doc:id="6b1aae35-c97e-4f27-a5b6-154b7a4f9694" message="Executing /process/status - #[payload]" />
+		<flow-ref doc:name="Get status" doc:id="05d3c9f0-5fa1-40d4-85ff-5832c5143c14" name="idp_get_status"/>
+		<ee:transform doc:name="Transform Message" doc:id="6a9817bf-45b2-44f2-93b7-4933a78f3cb4" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+import * from dw::core::Strings
+import * from dw::Runtime
+// Helper function to parse JSON if valid, otherwise return as-is
+fun parseIfJson(str: String): Any = 
+    try(() -> read(str, "application/json")) orElse str
+
+// Helper function to process fields
+fun processFields(fields: Object): Object = 
+    fields mapObject ((fieldValue, fieldKey) -> {
+        (fieldKey): if (fieldKey == "terms")
+            // For 'terms' field, split by "." and process each part
+            (fieldValue.value splitBy ".") map trim($)
+        else if (fieldValue is Object and fieldValue.value?)
+            // If it has a .value property, extract and parse if JSON
+            parseIfJson(fieldValue.value)
+        else if (fieldValue is Object)
+            // If it's a nested object (like parties), recursively process it
+            processFields(fieldValue)
+        else
+            // Otherwise return as-is
+            fieldValue
+    })
+
+// Helper function to process tables
+fun processTables(tables: Object): Object = 
+    tables mapObject ((tableValue, tableKey) -> {
+        (tableKey): if (tableValue is Array)
+            // If it's an array, process each row
+            tableValue map ((row) -> 
+                if (row is Object)
+                    // Process each field in the row to extract .value
+                    row mapObject ((cellValue, cellKey) -> {
+                        (cellKey): if (cellValue is Object and cellValue.value?)
+                            parseIfJson(cellValue.value)
+                        else
+                            cellValue
+                    })
+                else
+                    row
+            )
+        else
+            tableValue
+    })
+
+// Check if payload has pages structure or direct fields
+var hasPages = payload.pages?
+
+var processedPages = if (hasPages)
+    // Process existing pages structure
+    payload.pages map {
+        page: $.page,
+        fields: processFields($.fields),
+        tables: processTables($.tables)
+    }
+else
+    // Create pages structure from direct fields
+    [{
+        page: 1,
+        fields: processFields(payload.fields),
+        tables: processTables(payload.tables default {})
+    }]
+
+---
+{
+    id: payload.id,
+    documentName: payload.documentName,
+    status: payload.status,
+    pages: processedPages
+}]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+	</flow>
+	<sub-flow name="idp_get_status" doc:id="6e74a077-2115-4645-a6b5-9ca8980a955d" >
+		<set-variable value='#[output application/java --- vars.idpExecution.full_url as String ++ "/" ++ vars.idpExecution.execution_id as String]' doc:name="Set Variable" doc:id="8b50d003-1274-43ec-b539-4e6d06f0e12b" variableName="url" />
+		<flow-ref doc:name="Authenticate Anypoint User" doc:id="4568c634-7ddc-40af-ab22-b8a7b5dbede4" name="authenticate_Anypoint_User" />
+		<logger level="INFO" doc:name="Logger1" doc:id="b8515fd5-792a-412e-b549-e038e49aa523" message="Calling idp: #[vars.url]" />
+		<http:request doc:name="Get Results from IDP Service" doc:id="e5ad23cd-e162-484b-9057-f8d7364f79eb" config-ref="IDP_HTTP_Request_configuration" method="${http.get_method}" url="#[vars.url]" sendBodyMode="NEVER">
+			<http:headers><![CDATA[#[output application/java
+---
+{
+	"Authorization" : "Bearer " ++ vars.token
+}]]]></http:headers>
+		</http:request>
+	</sub-flow>
+	<flow name="idp-process-review" doc:id="92ad47bd-24d4-4c2f-8127-746d19731e7e" >
+		<http:listener doc:name="POST /process/review" doc:id="c3c10d69-b7bf-4df1-9fbe-8b722c854c82" config-ref="REST_Trigger_HTTP_Listener_config" path="/process/review" />
+		<set-variable value='#[%dw 2.0&#10;output application/java&#10;---&#10;{&#10;  job_id: payload.job_id  as String,&#10;  execution_id: payload.execution_id as String default "",&#10;  auth_client_id: payload.auth_client_id  as String,&#10;  auth_client_secret: payload.auth_client_secret  as String,&#10;  anypoint_username: payload.anypoint_username,&#10;  anypoint_password: payload.anypoint_password,&#10;  action_id: payload.idp_http_request.action_id as String,&#10;  action_version: payload.idp_http_request.action_version as String,&#10;  org_id: payload.idp_http_request.org_id as String,&#10;  idp_http_request: {&#10;  	method: payload.idp_http_request.method as String default "",&#10;    host: payload.idp_http_request.host  as String,&#10;    base_path: payload.idp_http_request.base_path  as String,&#10;    protocol: payload.idp_http_request.protocol  as String&#10;  },&#10;  full_url: "https://" ++ payload.idp_http_request.host  as String&#10;  				++ payload.idp_http_request.base_path as String&#10;}]' doc:name="Set idPExecution" doc:id="b56cf726-f835-45c2-b951-d75f47cf63de" variableName="idpExecution" />
+		<set-variable value='#[vars.idpExecution.full_url replace /\/versions\/.*\/executions/ with "/reviews/" ++ vars.idpExecution.execution_id]' doc:name="Set Variable" doc:id="77d6686b-a333-4d60-90ae-23dc19d39fb1" variableName="url"/>
+		<logger level="INFO" doc:name="Logger" doc:id="3e9e9471-82f7-416c-9159-177d0da76a06" message="Executing /process/review - #[payload]" />
+		<logger level="INFO" doc:name="Logger" doc:id="5f0dfbef-ef81-4b78-91e1-d123e9714925" message="/rpocess/review - #[vars.url]"/>
+		<choice doc:name="Choice" doc:id="2a2b26e2-5755-4192-8acf-9fa7f9c35243" >
+			<when expression="#[!isEmpty(attributes.queryParams.http)]">
+				<http:request doc:name="Request" doc:id="dc8b3757-aa7b-46ba-bb7d-44d0f286c153" url="#[vars.url]">
+			<http:headers><![CDATA[#[%dw 2.0
+import * from dw::core::Binaries
+output application/java
+---
+{
+    basicAuth: toBase64(vars.idpExecution.anypoint_username ++ ":" ++ vars.idpExecution.anypoint_password)
+}]]]></http:headers>
+		</http:request>
+			</when>
+			<otherwise >
+				<mule-soft-idp-universal-rest-smart-connector:_idp_--reviewtaskbyexecution_--fetch doc:name="🌐 IDP - ReviewTaskByExecution - Fetch" doc:id="15bc4dc0-07b0-46d2-a5fb-9336f7dc623c" config-ref="MuleSoft_IDP_BasicAuth_Config" org-id="#[vars.idpExecution.org_id]" action-id="#[vars.idpExecution.action_id]" execution-id="#[vars.idpExecution.execution_id]" />
+			</otherwise>
+		</choice>
+		<logger level="INFO" doc:name="Logger" doc:id="c02f1a9c-1c56-4c25-b675-cf8ca06d0800" message="/rpocess/review output -&gt; #[payload]"/>
+		<ee:transform doc:name="Transform Message" doc:id="1b1b1443-cc1c-416f-884b-f4c700d6b85d">
+			<ee:message>
+				<ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+	</flow>
+	<flow name="idp-process-approve" doc:id="09fbc2d5-f8ce-42e5-ba4a-37a3559d60a2" >
+		<http:listener doc:name="PATCH /process/approve" doc:id="25ea510e-f7f5-43b9-910b-925d4c937c0d" config-ref="REST_Trigger_HTTP_Listener_config" path="/process/approve" allowedMethods="PATCH"/>
+		<set-variable value='#[%dw 2.0&#10;output application/java&#10;---&#10;{&#10;  job_id: payload.job_id  as String,&#10;  execution_id: payload.execution_id as String default "",&#10;  auth_client_id: payload.auth_client_id  as String,&#10;  auth_client_secret: payload.auth_client_secret  as String,&#10;  anypoint_username: payload.anypoint_username,&#10;  anypoint_password: payload.anypoint_password,&#10;  action_id: payload.idp_http_request.action_id as String,&#10;  action_version: payload.idp_http_request.action_version as String,&#10;  org_id: payload.idp_http_request.org_id as String,&#10;  idp_http_request: {&#10;  	method: payload.idp_http_request.method as String default "",&#10;    host: payload.idp_http_request.host  as String,&#10;    base_path: payload.idp_http_request.base_path  as String,&#10;    protocol: payload.idp_http_request.protocol  as String&#10;  },&#10;  full_url: "https://" ++ payload.idp_http_request.host  as String&#10;  				++ payload.idp_http_request.base_path as String&#10;}]' doc:name="Set idPExecution" doc:id="2302881d-8286-4bd3-9f62-cb3c6498e9d8" variableName="idpExecution" />
+		<set-variable value="#[payload.approved_data]" doc:name="Set approvedData" doc:id="c8dace20-b16a-4ca1-8efb-425ea2be21f3" variableName="approvedData"/>
+		<logger level="INFO" doc:name="Logger" doc:id="1f8cb40e-ae33-4580-a222-b2873343195c" message="Executing /process/approve - #[payload]" />
+		<mule-soft-idp-universal-rest-smart-connector:_idp_--reviewtaskbyexecution_--update doc:name="🌐 IDP - ReviewTaskByExecution - Update" doc:id="f368ae50-48c2-4b1f-be62-1a2e9f97eebe" config-ref="MuleSoft_IDP_BasicAuth_Config" org-id="#[vars.idpExecution.org_id]" action-id="#[vars.idpExecution.action_id]" execution-id="#[vars.idpExecution.execution_id]">
+			<mule-soft-idp-universal-rest-smart-connector:_idp_--reviewtaskbyexecution_--update-request-data ><![CDATA[#[vars.approvedData]]]></mule-soft-idp-universal-rest-smart-connector:_idp_--reviewtaskbyexecution_--update-request-data>
+		</mule-soft-idp-universal-rest-smart-connector:_idp_--reviewtaskbyexecution_--update>
+		<flow-ref doc:name="Get status" doc:id="65d0aca3-f16f-4be3-afff-c45a9be6a7c6" name="idp_get_status" />
+		<ee:transform doc:name="Transform Message" doc:id="dce1d859-a631-4f01-ab6c-1ce582934c18" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+import * from dw::core::Strings
+import * from dw::Runtime
+// Helper function to parse JSON if valid, otherwise return as-is
+fun parseIfJson(str: String): Any = 
+    try(() -> read(str, "application/json")) orElse str
+
+// Helper function to process fields
+fun processFields(fields: Object): Object = 
+    fields mapObject ((fieldValue, fieldKey) -> {
+        (fieldKey): if (fieldKey == "terms")
+            // For 'terms' field, split by "." and process each part
+            (fieldValue.value splitBy ".") map trim($)
+        else if (fieldValue is Object and fieldValue.value?)
+            // If it has a .value property, extract and parse if JSON
+            parseIfJson(fieldValue.value)
+        else if (fieldValue is Object)
+            // If it's a nested object (like parties), recursively process it
+            processFields(fieldValue)
+        else
+            // Otherwise return as-is
+            fieldValue
+    })
+
+// Helper function to process tables
+fun processTables(tables: Object): Object = 
+    tables mapObject ((tableValue, tableKey) -> {
+        (tableKey): if (tableValue is Array)
+            // If it's an array, process each row
+            tableValue map ((row) -> 
+                if (row is Object)
+                    // Process each field in the row to extract .value
+                    row mapObject ((cellValue, cellKey) -> {
+                        (cellKey): if (cellValue is Object and cellValue.value?)
+                            parseIfJson(cellValue.value)
+                        else
+                            cellValue
+                    })
+                else
+                    row
+            )
+        else
+            tableValue
+    })
+
+// Check if payload has pages structure or direct fields
+var hasPages = payload.pages?
+
+var processedPages = if (hasPages)
+    // Process existing pages structure
+    payload.pages map {
+        page: $.page,
+        fields: processFields($.fields),
+        tables: processTables($.tables)
+    }
+else
+    // Create pages structure from direct fields
+    [{
+        page: 1,
+        fields: processFields(payload.fields),
+        tables: processTables(payload.tables default {})
+    }]
+
+---
+{
+    id: payload.id,
+    documentName: payload.documentName,
+    status: payload.status,
+    pages: processedPages
+}]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+	</flow>
+	
+	
+	
+</mule>

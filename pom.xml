@@ -98,6 +98,18 @@
 			<artifactId>groovy-jsr223</artifactId>
 			<version>3.0.19</version>
 		</dependency>
+		<dependency>
+			<groupId>b6e6fd00-461d-4221-abc2-b51830f90dda</groupId>
+			<artifactId>mule-plugin-mulesoft-idp-universal-rest-smart-connector</artifactId>
+			<version>1.0.1</version>
+			<classifier>mule-plugin</classifier>
+		</dependency>
+		<dependency>
+			<groupId>org.mule.modules</groupId>
+			<artifactId>mule-oauth-module</artifactId>
+			<version>1.1.25</version>
+			<classifier>mule-plugin</classifier>
+		</dependency>
 	</dependencies>
 
 	<repositories>

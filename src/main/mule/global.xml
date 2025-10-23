@@ -1,14 +1,15 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
-<mule xmlns:ms-inference="http://www.mulesoft.org/schema/mule/ms-inference" xmlns:db="http://www.mulesoft.org/schema/mule/db"
-	xmlns:s4hana="http://www.mulesoft.org/schema/mule/s4hana"
-	xmlns:salesforce="http://www.mulesoft.org/schema/mule/salesforce" xmlns:file="http://www.mulesoft.org/schema/mule/file" xmlns:http="http://www.mulesoft.org/schema/mule/http" xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+<mule xmlns:mule-soft-idp-universal-rest-smart-connector="http://www.mulesoft.org/schema/mule/mule-soft-idp-universal-rest-smart-connector" xmlns:ms-inference="http://www.mulesoft.org/schema/mule/ms-inference"
+	xmlns:db="http://www.mulesoft.org/schema/mule/db"
+	xmlns:s4hana="http://www.mulesoft.org/schema/mule/s4hana" xmlns:salesforce="http://www.mulesoft.org/schema/mule/salesforce" xmlns:file="http://www.mulesoft.org/schema/mule/file" xmlns:http="http://www.mulesoft.org/schema/mule/http" xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
 http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
 http://www.mulesoft.org/schema/mule/file http://www.mulesoft.org/schema/mule/file/current/mule-file.xsd
 http://www.mulesoft.org/schema/mule/salesforce http://www.mulesoft.org/schema/mule/salesforce/current/mule-salesforce.xsd
 http://www.mulesoft.org/schema/mule/s4hana http://www.mulesoft.org/schema/mule/s4hana/current/mule-s4hana.xsd
 http://www.mulesoft.org/schema/mule/db http://www.mulesoft.org/schema/mule/db/current/mule-db.xsd
-http://www.mulesoft.org/schema/mule/ms-inference http://www.mulesoft.org/schema/mule/ms-inference/current/mule-ms-inference.xsd">
+http://www.mulesoft.org/schema/mule/ms-inference http://www.mulesoft.org/schema/mule/ms-inference/current/mule-ms-inference.xsd
+http://www.mulesoft.org/schema/mule/mule-soft-idp-universal-rest-smart-connector http://www.mulesoft.org/schema/mule/mule-soft-idp-universal-rest-smart-connector/current/mule-mule-soft-idp-universal-rest-smart-connector.xsd">
 	<http:listener-config name="REST_Trigger_HTTP_Listener_config" doc:name="HTTP Listener config" doc:id="87df0d4f-557c-4a20-ac97-8ed21a39f64e" >
 		<http:listener-connection host="0.0.0.0" port="8081" readTimeout="60000"/>
 	</http:listener-config>
@@ -34,4 +35,11 @@ http://www.mulesoft.org/schema/mule/ms-inference http://www.mulesoft.org/schema/
 	<ms-inference:text-generation-config name="MuleSoft_Inference_Text_generation_config" doc:name="MuleSoft Inference Text generation config" doc:id="9c7e69f6-4786-4fef-929e-60458198cdb5" >
 		<ms-inference:openai-connection openAIModelName="gpt-4o" apiKey="${mac.openai_key}" maxTokens="16384" timeout="180"/>
 	</ms-inference:text-generation-config>
+	<mule-soft-idp-universal-rest-smart-connector:config name="MuleSoft_Anypoint_BasicAuth_Config" doc:name="MuleSoft IDP Universal 🌐 REST Smart Connector 🔌 Config" doc:id="c890ddf4-b980-46f8-806f-daeb10f62a84" 
+	property_username="#[vars.idpExecution.anypoint_username]" property_password="#[vars.idpExecution.anypoint_password]" property_oauth2-client-id="#[vars.idpExecution.auth_client_id]" property_oauth2-client-secret="#[vars.idpExecution.auth_client_secret]"  property_oauth2-access-token-url="https://anypoint.mulesoft.com/accounts/api/v2/oauth2/token"/>
+	<mule-soft-idp-universal-rest-smart-connector:config name="MuleSoft_IDP_BasicAuth_Config" doc:name="MuleSoft IDP Universal 🌐 REST Smart Connector 🔌 Config" doc:id="0644e20c-9310-4358-a980-d2bfb63ca0a8" 
+	property_username="#[vars.idpExecution.anypoint_username]" property_password="#[vars.idpExecution.anypoint_password]" property_oauth2-client-id="#[vars.idpExecution.auth_client_id]" property_oauth2-client-secret="#[vars.idpExecution.auth_client_secret]"  property_host="idp-rt.us-east-1.anypoint.mulesoft.com" property_oauth2-access-token-url="https://anypoint.mulesoft.com/accounts/api/v2/oauth2/token"/>
+	<mule-soft-idp-universal-rest-smart-connector:config name="MuleSoft_IDP_OAuth_Config" doc:name="MuleSoft IDP Universal 🌐 REST Smart Connector 🔌 Config" doc:id="719731cf-9128-4801-ae12-7904919cf747" 
+	property_username="#[vars.idpExecution.anypoint_username]" property_password="#[vars.idpExecution.anypoint_password]" property_oauth2-client-id="#[vars.idpExecution.auth_client_id]" property_oauth2-client-secret="#[vars.idpExecution.auth_client_secret]" property_host="idp-rt.us-east-1.anypoint.mulesoft.com" property_oauth2-access-token-url="https://anypoint.mulesoft.com/accounts/api/v2/oauth2/token"/>
+
 </mule>
