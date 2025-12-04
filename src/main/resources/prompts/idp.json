@@ -1,0 +1,109 @@
+{
+	"id": "7deba719-3808-4d02-a912-ab6f0dd3cb5e",
+	"pages": [
+		{
+			"page": 1,
+			"fields": {
+				"terms": [
+					"Promotional discount funded 50% by Distributor and 50% by Retailer (25/25 split)",
+					"SRP markdowns must comply with state minimums",
+					"Approved mechanics: price-drop, bundle (2 for), cart add-on",
+					"Limits: 4 units per customer/day"
+				],
+				"display": "Retailer features Dreamfields on a primary display and promotes through social/email using provided assets. Distributor supplies POS materials and staff training.",
+				"purpose": "This Agreement defines promotional and pricing terms under which Distributor supplies Dreamfields products to Retailer for resale in the med channel. Parties agree to execute a competitive promotion to drive trial and repeat purchases while remaining compliant.",
+				"products": [
+					{
+						"name": "Infused Baby Jeeter 0.5g X 5 Grapefruit Romulan",
+						"Ref. Price": "N/A",
+						"units sold (ref)": "2"
+					},
+					{
+						"name": "Infused Jeeter XL 2g Preroll Acapulco Gold",
+						"Ref. Price": "N/A",
+						"units sold (ref)": "1"
+					},
+					{
+						"name": "Infused Jeeter Cannon 1.3g Granddaddy Purp",
+						"Ref. Price": "N/A",
+						"units sold (ref)": "1"
+					},
+					{
+						"name": "Infused Jeeter Cannon 1.3g Preroll Banana Haze",
+						"Ref. Price": "N/A",
+						"units sold (ref)": "1"
+					},
+					{
+						"name": "Infused Jeeter Cannon 1.3g Preroll Orange Haze",
+						"Ref. Price": "N/A",
+						"units sold (ref)": "1"
+					},
+					{
+						"name": "Infused Jeeter Cannon 1.3g Preroll Purple Champagne",
+						"Ref. Price": "N/A",
+						"units sold (ref)": "1"
+					},
+					{
+						"name": "Infused Jeeter Resin Cannons 0.5g X 3 Prerolls Jelly Sherbet",
+						"Ref. Price": "N/A",
+						"units sold (ref)": "1"
+					},
+					{
+						"name": "Infused Jeeter Resin Cannons 0.5g X 3 Prerolls Very Cherry",
+						"Ref. Price": "N/A",
+						"units sold (ref)": "1"
+					},
+					{
+						"name": "Infused Jeeter Resin Cannons 0.5g X 3 Prerolls Wedding Gelato",
+						"Ref. Price": "N/A",
+						"units sold (ref)": "1"
+					},
+					{
+						"name": "Infused Jeeter XL 2g Blue ZKZ",
+						"Ref. Price": "N/A",
+						"units sold (ref)": "1"
+					}
+				],
+				"retailer": {
+					"retailer": {
+						"name": "Puff Utica Dispensary",
+						"phone": "",
+						"address": {
+							"city": "Utica",
+							"state": "MI",
+							"address": "115 W. Main Street",
+							"zipcode": "48317"
+						}
+					}
+				},
+				"compliance": [
+					"Products are state-tested and compliant",
+					"Retailer will not repackage/alter products and will sell only within the authorized market"
+				],
+				"distributor": {
+					"distributor": {
+						"name": "Dreamfields Distribution Co.",
+						"phone": "",
+						"address": {
+							"city": "Oakland",
+							"state": "CA",
+							"address": "428 Market Street",
+							"zipcode": "94612"
+						}
+					}
+				},
+				"termination": "Either party may terminate with 30 days' written notice for breach or non-payment.",
+				"createdDates": {
+					"Retailer": "Puff Utica Dispensary",
+					"Distributor": "Dreamfields Distribution Co.",
+					"Effective Date": "Oct 09, 2025"
+				},
+				"documentSummary": "The document is a distribution agreement between Dreamfields Distribution Co. and Puff Utica Dispensary, effective from October 9, 2025, for a 6-month term. It outlines promotional and pricing terms, product details, compliance requirements, and termination conditions. The agreement includes a 50/50 promotional discount split, marketing and display obligations, and compliance with state regulations.",
+				"promotionalMath": "Promotional discount funded 50% by Distributor and 50% by Retailer (25/25 split). SRP markdowns must comply with state minimums. Approved mechanics include price-drop, bundle (2 for), and cart add-on. Limits are set at 4 units per customer per day."
+			},
+			"tables": {}
+		}
+	],
+	"status": "SUCCEEDED",
+	"documentName": "Scanned MED.pdf"
+}

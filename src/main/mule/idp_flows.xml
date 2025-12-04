@@ -54,25 +54,45 @@ payload]]></ee:set-payload>
 output application/json
 import * from dw::core::Strings
 import * from dw::Runtime
+
+// Configuration - set based on query parameter
+var valueOnly = vars.queryParams.valueOnly default true
+
 // Helper function to parse JSON if valid, otherwise return as-is
 fun parseIfJson(str: String): Any = 
     try(() -> read(str, "application/json")) orElse str
+
+// Helper function to process a single field value
+fun processFieldValue(fieldValue: Any): Any = 
+    if (fieldValue is Object and fieldValue.value?)
+        if (valueOnly)
+            // Only return the value, parsed if JSON
+            parseIfJson(fieldValue.value)
+        else
+            // Return full structure with confidenceScore and geometry if present
+            {
+                value: parseIfJson(fieldValue.value),
+                (confidenceScore: fieldValue.confidenceScore) if (fieldValue.confidenceScore?),
+                (geometry: fieldValue.geometry) if (fieldValue.geometry?)
+            }
+    else
+        fieldValue
 
 // Helper function to process fields
 fun processFields(fields: Object): Object = 
     fields mapObject ((fieldValue, fieldKey) -> {
         (fieldKey): if (fieldKey == "terms")
             // For 'terms' field, split by "." and process each part
-            (fieldValue.value splitBy ".") map trim($)
-        else if (fieldValue is Object and fieldValue.value?)
-            // If it has a .value property, extract and parse if JSON
-            parseIfJson(fieldValue.value)
-        else if (fieldValue is Object)
+            if (fieldValue is Object and fieldValue.value?)
+                (fieldValue.value splitBy ".") map trim($)
+            else
+                fieldValue
+        else if (fieldValue is Object and !fieldValue.value?)
             // If it's a nested object (like parties), recursively process it
             processFields(fieldValue)
         else
-            // Otherwise return as-is
-            fieldValue
+            // Process the field value with confidence/geometry handling
+            processFieldValue(fieldValue)
     })
 
 // Helper function to process tables
@@ -82,12 +102,9 @@ fun processTables(tables: Object): Object =
             // If it's an array, process each row
             tableValue map ((row) -> 
                 if (row is Object)
-                    // Process each field in the row to extract .value
+                    // Process each field in the row
                     row mapObject ((cellValue, cellKey) -> {
-                        (cellKey): if (cellValue is Object and cellValue.value?)
-                            parseIfJson(cellValue.value)
-                        else
-                            cellValue
+                        (cellKey): processFieldValue(cellValue)
                     })
                 else
                     row
@@ -96,22 +113,48 @@ fun processTables(tables: Object): Object =
             tableValue
     })
 
+// Helper function to process prompts - now handles null/empty safely
+fun processPrompts(prompts: Object | Null): Object | Null = 
+    if (prompts == null or isEmpty(prompts))
+        null
+    else
+        prompts mapObject ((promptValue, promptKey) -> {
+            (promptKey): {
+                (prompt: promptValue.prompt) if (promptValue.prompt?),
+                (source: promptValue.source) if (promptValue.source?),
+                (answer: if (valueOnly)
+                    // When valueOnly=true, only include the value
+                    {
+                        value: parseIfJson(promptValue.answer.value)
+                    }
+                else
+                    // When valueOnly=false, include all properties
+                    {
+                        (value: parseIfJson(promptValue.answer.value)) if (promptValue.answer.value?),
+                        (confidenceScore: promptValue.answer.confidenceScore) if (promptValue.answer.confidenceScore?),
+                        (geometry: promptValue.answer.geometry) if (promptValue.answer.geometry?)
+                    }
+                ) if (promptValue.answer?)
+            }
+        })
+
 // Check if payload has pages structure or direct fields
 var hasPages = payload.pages?
-
 var processedPages = if (hasPages)
     // Process existing pages structure
     payload.pages map {
         page: $.page,
         fields: processFields($.fields),
-        tables: processTables($.tables)
+        tables: processTables($.tables),
+        (prompts: processPrompts($.prompts)) if ($.prompts? and processPrompts($.prompts) != null)
     }
 else
     // Create pages structure from direct fields
     [{
         page: 1,
-        fields: processFields(payload.fields),
-        tables: processTables(payload.tables default {})
+        fields: processFields(payload.fields default {}),
+        tables: processTables(payload.tables default {}),
+        (prompts: processPrompts(payload.prompts)) if (payload.prompts? and processPrompts(payload.prompts) != null)
     }]
 
 ---
@@ -119,7 +162,8 @@ else
     id: payload.id,
     documentName: payload.documentName,
     status: payload.status,
-    pages: processedPages
+    pages: processedPages,
+    (prompts: processPrompts(payload.prompts)) if (payload.prompts? and processPrompts(payload.prompts) != null)
 }]]></ee:set-payload>
 			</ee:message>
 		</ee:transform>
@@ -183,25 +227,45 @@ payload]]></ee:set-payload>
 output application/json
 import * from dw::core::Strings
 import * from dw::Runtime
+
+// Configuration - set based on query parameter
+var valueOnly = vars.queryParams.valueOnly default true
+
 // Helper function to parse JSON if valid, otherwise return as-is
 fun parseIfJson(str: String): Any = 
     try(() -> read(str, "application/json")) orElse str
+
+// Helper function to process a single field value
+fun processFieldValue(fieldValue: Any): Any = 
+    if (fieldValue is Object and fieldValue.value?)
+        if (valueOnly)
+            // Only return the value, parsed if JSON
+            parseIfJson(fieldValue.value)
+        else
+            // Return full structure with confidenceScore and geometry if present
+            {
+                value: parseIfJson(fieldValue.value),
+                (confidenceScore: fieldValue.confidenceScore) if (fieldValue.confidenceScore?),
+                (geometry: fieldValue.geometry) if (fieldValue.geometry?)
+            }
+    else
+        fieldValue
 
 // Helper function to process fields
 fun processFields(fields: Object): Object = 
     fields mapObject ((fieldValue, fieldKey) -> {
         (fieldKey): if (fieldKey == "terms")
             // For 'terms' field, split by "." and process each part
-            (fieldValue.value splitBy ".") map trim($)
-        else if (fieldValue is Object and fieldValue.value?)
-            // If it has a .value property, extract and parse if JSON
-            parseIfJson(fieldValue.value)
-        else if (fieldValue is Object)
+            if (fieldValue is Object and fieldValue.value?)
+                (fieldValue.value splitBy ".") map trim($)
+            else
+                fieldValue
+        else if (fieldValue is Object and !fieldValue.value?)
             // If it's a nested object (like parties), recursively process it
             processFields(fieldValue)
         else
-            // Otherwise return as-is
-            fieldValue
+            // Process the field value with confidence/geometry handling
+            processFieldValue(fieldValue)
     })
 
 // Helper function to process tables
@@ -211,12 +275,9 @@ fun processTables(tables: Object): Object =
             // If it's an array, process each row
             tableValue map ((row) -> 
                 if (row is Object)
-                    // Process each field in the row to extract .value
+                    // Process each field in the row
                     row mapObject ((cellValue, cellKey) -> {
-                        (cellKey): if (cellValue is Object and cellValue.value?)
-                            parseIfJson(cellValue.value)
-                        else
-                            cellValue
+                        (cellKey): processFieldValue(cellValue)
                     })
                 else
                     row
@@ -225,22 +286,48 @@ fun processTables(tables: Object): Object =
             tableValue
     })
 
+// Helper function to process prompts - now handles null/empty safely
+fun processPrompts(prompts: Object | Null): Object | Null = 
+    if (prompts == null or isEmpty(prompts))
+        null
+    else
+        prompts mapObject ((promptValue, promptKey) -> {
+            (promptKey): {
+                (prompt: promptValue.prompt) if (promptValue.prompt?),
+                (source: promptValue.source) if (promptValue.source?),
+                (answer: if (valueOnly)
+                    // When valueOnly=true, only include the value
+                    {
+                        value: parseIfJson(promptValue.answer.value)
+                    }
+                else
+                    // When valueOnly=false, include all properties
+                    {
+                        (value: parseIfJson(promptValue.answer.value)) if (promptValue.answer.value?),
+                        (confidenceScore: promptValue.answer.confidenceScore) if (promptValue.answer.confidenceScore?),
+                        (geometry: promptValue.answer.geometry) if (promptValue.answer.geometry?)
+                    }
+                ) if (promptValue.answer?)
+            }
+        })
+
 // Check if payload has pages structure or direct fields
 var hasPages = payload.pages?
-
 var processedPages = if (hasPages)
     // Process existing pages structure
     payload.pages map {
         page: $.page,
         fields: processFields($.fields),
-        tables: processTables($.tables)
+        tables: processTables($.tables),
+        (prompts: processPrompts($.prompts)) if ($.prompts? and processPrompts($.prompts) != null)
     }
 else
     // Create pages structure from direct fields
     [{
         page: 1,
-        fields: processFields(payload.fields),
-        tables: processTables(payload.tables default {})
+        fields: processFields(payload.fields default {}),
+        tables: processTables(payload.tables default {}),
+        (prompts: processPrompts(payload.prompts)) if (payload.prompts? and processPrompts(payload.prompts) != null)
     }]
 
 ---
@@ -248,7 +335,8 @@ else
     id: payload.id,
     documentName: payload.documentName,
     status: payload.status,
-    pages: processedPages
+    pages: processedPages,
+    (prompts: processPrompts(payload.prompts)) if (payload.prompts? and processPrompts(payload.prompts) != null)
 }]]></ee:set-payload>
 			</ee:message>
 		</ee:transform>

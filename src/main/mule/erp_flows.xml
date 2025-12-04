@@ -1,0 +1,89 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:ms-inference="http://www.mulesoft.org/schema/mule/ms-inference" xmlns:db="http://www.mulesoft.org/schema/mule/db"
+	xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+	xmlns:http="http://www.mulesoft.org/schema/mule/http" xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd
+http://www.mulesoft.org/schema/mule/db http://www.mulesoft.org/schema/mule/db/current/mule-db.xsd
+http://www.mulesoft.org/schema/mule/ms-inference http://www.mulesoft.org/schema/mule/ms-inference/current/mule-ms-inference.xsd">
+	<flow name="analyze-erp" doc:id="b54480ca-f721-439c-88fc-e261bc94775f" >
+		<http:listener doc:name="POST /analyze/erp" doc:id="05e51233-c8bb-481a-a27b-ea72d67940cc" config-ref="REST_Trigger_HTTP_Listener_config" path="/analyze/erp" allowedMethods="POST" />
+		<logger level="INFO" doc:name="Logger" doc:id="fc8879e2-44c8-48e3-a58c-f013b3ec0d36" message="Starting Analyze body = #[payload]" />
+		<set-variable value="#[payload.job_id]" doc:name="Set JobId" doc:id="59a20b34-b971-4394-967a-876c378708ab" variableName="jobId" />
+		<set-variable value='#[%dw 2.0&#10;output application/json&#10;---&#10;(payload.variables filter ($.name == "idpData"))[0].value as Object default {}]' doc:name="Set PO" doc:id="44d803f9-15f0-4ca2-8b60-75a6a9a92738" variableName="idpData" />
+		<set-variable value="#[payload.prompt.id as Number default 1]" doc:name="Set Prompt ID" doc:id="e1972cf2-7d29-4f59-98c2-a1be4b92001c" variableName="promptId" />
+		<flow-ref doc:name="Get Prompt" doc:id="73bb7cfa-9416-4fa3-bd9f-cb445d27aafa" name="get-prompt" />
+		<ee:transform doc:name="Transform Message" doc:id="f4fc0e66-eea5-4e88-9eaf-b472298cb74d">
+							<ee:message>
+								<ee:set-payload><![CDATA[%dw 2.0
+output application/json
+
+var idpDataJsonStr = write(vars.idpData, "application/json", {indent: 2})
+var sourceSummaryStr = write(vars.data,   "application/json", {indent: 2})
+
+---
+{
+  prompt: payload.prompt,
+  instructions: "Follow the instructions precisely, do not add any information not provided. Do not ask qny questions. Use the template and replace anything between {{}} with an element of the data provided. If none, use all the data. Do not add any comments inside the json file with // or /**/ at all, CRITICAL FORMATTING RULES: 1. Start with ```json (not ``` or other variants) 2. After the closing ```, use exactly: \n\n---\n\n 3. Then start the markdown section with # heading 4. Do NOT include any comments like \/\/ Additional products... in the JSON",
+  vars: payload.vars,
+  data: write({
+	  po: idpDataJsonStr,
+	  source: sourceSummaryStr
+  },   "application/json", {indent: 2})
+}
+]]></ee:set-payload>
+							</ee:message>
+						</ee:transform>
+		<logger level="INFO" doc:name="Logger1" doc:id="5fb8b2c3-9b4d-40b9-875d-99675521a010" message="Sending data #[payload]" />
+		<ms-inference:agent-define-prompt-template doc:name="[Agent] Define Prompt Template" doc:id="1ee73e7b-2bb6-4c01-9474-d6b6210daa0d" config-ref="MuleSoft_Inference_Text_generation_config">
+							<ms-inference:template><![CDATA[#[payload.prompt]]]></ms-inference:template>
+							<ms-inference:instructions><![CDATA[#[payload.instructions]]]></ms-inference:instructions>
+							<ms-inference:data><![CDATA[#[payload.data]]]></ms-inference:data>
+						</ms-inference:agent-define-prompt-template>
+		<logger level="INFO" doc:name="Logger2" doc:id="d8ede395-b308-47a0-94e1-c4f327766052" message="#[payload]" />
+		<ee:transform doc:name="Transform Message1" doc:id="b1a8ba4d-60aa-45a4-8e90-46610069e794">
+							<ee:message>
+								<ee:set-payload><![CDATA[%dw 2.0
+output application/json
+import * from dw::core::Strings
+
+// Remove all comments
+var cleanedResponse = payload.response replace /\/\/.*(\n|$)/ with ""
+
+// Split by triple backticks to get the JSON
+var parts = cleanedResponse splitBy "```"
+
+// parts[1] should be the JSON (may have "json" prefix)
+var jsonWithPrefix = trim(parts[1])
+// Remove "json" prefix if it exists
+var jsonString = if (jsonWithPrefix startsWith "json")
+    trim(jsonWithPrefix[4 to -1])
+else
+    jsonWithPrefix
+
+// Find the markdown section (could start with either "---" or "```")
+var markdownStartDashes = cleanedResponse indexOf "\n---\n"
+var markdownStartBackticks = cleanedResponse indexOf ("\n```\n#")
+
+// Use whichever marker is found
+var markdownStart = if (markdownStartDashes != -1) markdownStartDashes
+                    else if (markdownStartBackticks != -1) markdownStartBackticks
+                    else -1
+
+var markdownContent = if (markdownStart != -1)
+    trim(cleanedResponse[markdownStart + 5 to -1])
+else ""
+
+---
+{
+    status: "SUCCEEDED",
+    analysis_markdown: markdownContent,
+    jsonData: read(jsonString, "application/json"),
+    data_table: []
+}]]></ee:set-payload>
+							</ee:message>
+						</ee:transform>
+		<logger level="DEBUG" doc:name="Logger1" doc:id="27f7bfcd-e330-4d0a-ae4b-afd3f7aa58d1" message="Sending back #[payload]" />
+	</flow>
+</mule>
