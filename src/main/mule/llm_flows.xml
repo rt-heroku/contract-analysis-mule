@@ -1,5 +1,25 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
-<mule xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
-	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-	xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd"></mule>
+<mule xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core" xmlns:ms-inference="http://www.mulesoft.org/schema/mule/ms-inference"
+	xmlns:http="http://www.mulesoft.org/schema/mule/http"
+	xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/ms-inference http://www.mulesoft.org/schema/mule/ms-inference/current/mule-ms-inference.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd">
+	<flow name="llm_flows_chat_completions_wrapper" doc:id="8c183a9e-586b-4f3b-bdf8-9c674fd576f9" >
+		<http:listener doc:name="POST /v1/chat/completions" doc:id="9756ecdc-ce8f-4ab0-8174-9805ed9c655b" config-ref="REST_Trigger_HTTP_Listener_config" path="/v1/chat/completions" allowedMethods="POST"/>
+		<logger level="INFO" doc:name="Logger" doc:id="5c087268-2953-4b45-a4ae-511233fe7b0c" message="#[payload]"/>
+		<ms-inference:chat-completions doc:name="[Chat] Completions" doc:id="950c50fa-fb6b-41d0-8e20-5508652fcbf1" config-ref="MuleSoft_Inference_Text_generation_config">
+			<ms-inference:messages ><![CDATA[#[payload.messages]]]></ms-inference:messages>
+		</ms-inference:chat-completions>
+		<logger level="INFO" doc:name="Logger" doc:id="9f31ac39-b927-48f7-af44-0df89743d9fc" message="#[payload]"/>
+		<ee:transform doc:name="Transform Message" doc:id="3bd1a49a-d022-48b5-b6bc-d7289c34e295" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+	</flow>
+</mule>
